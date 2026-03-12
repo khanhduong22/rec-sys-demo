@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { products } from "@/lib/data/products";
 import { users } from "@/lib/data/users";
-import { cosineSimilarity } from "@/lib/recommendation/engine";
+import { cosineSimilarity, createInteractionMatrix, alsFactorize } from "@/lib/recommendation/engine";
 
 // ============================================================
 // HELPERS
@@ -300,6 +300,247 @@ function FBTDemo() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ============================================================
+// ALS INTERACTIVE DEMO
+// ============================================================
+
+function ALSDemo() {
+  const [selectedUser, setSelectedUser] = useState(0);
+
+  // Run ALS computation
+  const R = createInteractionMatrix(users, products);
+  const k = 5;
+  const { U, V } = alsFactorize(R, k, 50, 0.1);
+
+  // Compute predictions for selected user
+  const userPurchaseSet = new Set(users[selectedUser].purchaseHistory);
+  const predictions = products.map((p, j) => {
+    let score = 0;
+    for (let f = 0; f < k; f++) {
+      score += U[selectedUser][f] * V[j][f];
+    }
+    return {
+      product: p,
+      score: Math.round(score * 100) / 100,
+      owned: userPurchaseSet.has(p.id),
+    };
+  });
+
+  const unownedPredictions = predictions
+    .filter((p) => !p.owned)
+    .sort((a, b) => b.score - a.score);
+
+  const topRecommendations = new Set(
+    unownedPredictions.slice(0, 4).map((p) => p.product.id)
+  );
+
+  // Color for heatmap cell
+  const heatColor = (val: number, isOwned: boolean): string => {
+    if (isOwned) return "bg-cyan-500/30 text-cyan-300";
+    if (val >= 0.5) return "bg-emerald-500/20 text-emerald-400";
+    if (val >= 0.3) return "bg-amber-500/20 text-amber-400";
+    if (val >= 0.1) return "bg-muted/20 text-muted-foreground";
+    return "text-muted-foreground/30";
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Formula */}
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-xl p-5 border border-cyan-500/20 text-center mb-5">
+            <div className="text-lg font-mono font-bold text-foreground flex items-center justify-center gap-3 flex-wrap">
+              <span className="px-3 py-1 bg-muted/30 rounded">
+                R<sub className="text-xs">{users.length}×{products.length}</sub>
+              </span>
+              <span className="text-muted-foreground">≈</span>
+              <span className="px-3 py-1 bg-cyan-500/20 rounded text-cyan-400">
+                U<sub className="text-xs">{users.length}×{k}</sub>
+              </span>
+              <span className="text-muted-foreground">×</span>
+              <span className="px-3 py-1 bg-blue-500/20 rounded text-blue-400">
+                V<sub className="text-xs">{products.length}×{k}</sub>
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              ALS decomposes the interaction matrix R into User factors (U) × Product factors (V) with k={k} latent dimensions
+            </p>
+          </div>
+
+          {/* R matrix — Interaction Grid */}
+          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+            <Binary className="w-4 h-4 text-cyan-400" />
+            Step 1: Interaction Matrix R (who bought what)
+          </h3>
+          <div className="overflow-x-auto rounded-lg border border-border/30 mb-6">
+            <table className="text-[10px]">
+              <thead>
+                <tr className="bg-muted/30">
+                  <th className="p-1.5 text-left font-medium sticky left-0 bg-muted/30 z-10">User</th>
+                  {products.map((p) => (
+                    <th key={p.id} className="p-1.5 text-center whitespace-nowrap" title={p.name}>
+                      {p.image}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((user, i) => (
+                  <tr
+                    key={user.id}
+                    className={`border-t border-border/10 cursor-pointer transition-colors ${
+                      i === selectedUser ? "bg-cyan-500/10" : "hover:bg-muted/20"
+                    }`}
+                    onClick={() => setSelectedUser(i)}
+                  >
+                    <td className={`p-1.5 font-medium sticky left-0 z-10 whitespace-nowrap ${
+                      i === selectedUser ? "bg-cyan-500/10 text-cyan-400" : "bg-card/40"
+                    }`}>
+                      {user.avatar} {user.name.split(" ")[0]}
+                    </td>
+                    {R[i].map((val, j) => (
+                      <td
+                        key={products[j].id}
+                        className={`p-1.5 text-center font-mono font-bold ${
+                          val === 1 ? "bg-cyan-500/20 text-cyan-400" : "text-muted-foreground/20"
+                        }`}
+                      >
+                        {val}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* User Selector + Latent Factors */}
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+            <Target className="w-4 h-4 text-cyan-400" />
+            Step 2: Select a user to see their latent factor profile
+          </h3>
+
+          <div className="flex flex-wrap gap-2 mb-5">
+            {users.map((user, i) => (
+              <button
+                key={user.id}
+                onClick={() => setSelectedUser(i)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  i === selectedUser
+                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shadow-sm"
+                    : "bg-muted/20 text-muted-foreground border border-border/30 hover:bg-muted/40"
+                }`}
+              >
+                {user.avatar} {user.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Latent factors bars */}
+          <div className="bg-muted/10 rounded-lg p-4 border border-border/20">
+            <p className="text-xs text-muted-foreground mb-3">
+              Latent factors for <strong className="text-cyan-400">{users[selectedUser].name}</strong>
+              {" "}— these hidden dimensions capture purchase preferences:
+            </p>
+            <div className="space-y-2">
+              {U[selectedUser].map((val, f) => {
+                const maxVal = Math.max(...U[selectedUser].map(Math.abs));
+                const width = maxVal > 0 ? (Math.abs(val) / maxVal) * 100 : 0;
+                return (
+                  <div key={`factor-${String(f)}`} className="flex items-center gap-3">
+                    <span className="text-xs font-mono text-muted-foreground w-24 shrink-0">
+                      Factor {f + 1}: {val.toFixed(3)}
+                    </span>
+                    <div className="flex-1 h-4 bg-muted/20 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          val >= 0 ? "bg-cyan-500/50" : "bg-rose-500/50"
+                        }`}
+                        style={{ width: `${width}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Predictions */}
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-cyan-400" />
+            Step 3: Predictions for {users[selectedUser].name}
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Score = U[{users[selectedUser].name.split(" ")[0]}] · V[product] — dot product of latent vectors.
+            Products the user already owns are excluded.
+          </p>
+
+          <div className="overflow-x-auto rounded-lg border border-border/30 mb-4">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/30">
+                  <th className="p-2 text-left">Product</th>
+                  <th className="p-2 text-center">Predicted Score</th>
+                  <th className="p-2 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {predictions
+                  .toSorted((a, b) => b.score - a.score)
+                  .slice(0, 12)
+                  .map((p) => (
+                    <tr
+                      key={p.product.id}
+                      className={`border-t border-border/10 ${
+                        p.owned ? "opacity-40" : ""
+                      } ${!p.owned && topRecommendations.has(p.product.id) ? "bg-cyan-500/5" : ""}`}
+                    >
+                      <td className="p-2">
+                        {p.product.image} {p.product.name.split(" ").slice(0, 3).join(" ")}
+                      </td>
+                      <td className={`p-2 text-center font-mono font-bold ${heatColor(p.score, p.owned)}`}>
+                        {p.score.toFixed(2)}
+                      </td>
+                      <td className="p-2 text-center">
+                        {p.owned && (
+                          <span className="text-muted-foreground">Already owned</span>
+                        )}
+                        {!p.owned && topRecommendations.has(p.product.id) && (
+                          <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[10px]">
+                            <Cpu className="w-3 h-3 mr-1" />
+                            Recommended
+                          </Badge>
+                        )}
+                        {!p.owned && !topRecommendations.has(p.product.id) && (
+                          <span className="text-muted-foreground/50">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="bg-muted/20 rounded-lg p-3 border border-border/30 text-sm">
+            <Lightbulb className="w-4 h-4 inline mr-1 text-cyan-400" />
+            <strong>Try clicking different users above</strong> — notice how the latent factors
+            and predicted scores change. The algorithm discovers patterns that aren&apos;t
+            explicitly encoded in tags or purchase rules.
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -687,71 +928,7 @@ export default function HowItWorksPage() {
             that explain purchasing patterns — things like &quot;tech enthusiast&quot; or
             &quot;fashion-forward&quot; that aren&apos;t explicitly tagged.
           </p>
-          <Card className="bg-card/40 backdrop-blur-sm border-border/30">
-            <CardContent className="p-6 space-y-4">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <Cpu className="w-5 h-5 text-cyan-400" />
-                Alternating Least Squares (ALS)
-              </h3>
-
-              {/* Visual decomposition */}
-              <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-xl p-6 border border-cyan-500/20 text-center">
-                <div className="text-lg font-mono font-bold text-foreground flex items-center justify-center gap-3 flex-wrap">
-                  <span className="px-3 py-1 bg-muted/30 rounded">
-                    R<sub className="text-xs">5×20</sub>
-                  </span>
-                  <span className="text-muted-foreground">≈</span>
-                  <span className="px-3 py-1 bg-cyan-500/20 rounded text-cyan-400">
-                    U<sub className="text-xs">5×k</sub>
-                  </span>
-                  <span className="text-muted-foreground">×</span>
-                  <span className="px-3 py-1 bg-blue-500/20 rounded text-blue-400">
-                    V<sub className="text-xs">20×k</sub>
-                  </span>
-                </div>
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-muted-foreground">
-                  <div>
-                    <strong className="text-foreground">R</strong> = User×Product
-                    <br />interaction matrix (0/1)
-                  </div>
-                  <div>
-                    <strong className="text-cyan-400">U</strong> = User latent factors
-                    <br />k = 5 hidden dimensions
-                  </div>
-                  <div>
-                    <strong className="text-blue-400">V</strong> = Product latent factors
-                    <br />50 ALS iterations
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="bg-cyan-500/5 rounded-lg p-4 border border-cyan-500/10">
-                  <p className="text-sm font-semibold text-cyan-400 mb-2">How ALS Works</p>
-                  <p className="text-sm text-muted-foreground">
-                    1. Initialize U and V with random values<br />
-                    2. Fix V, optimize U to minimize reconstruction error<br />
-                    3. Fix U, optimize V to minimize reconstruction error<br />
-                    4. Repeat 50 times until convergence
-                  </p>
-                </div>
-                <div className="bg-cyan-500/5 rounded-lg p-4 border border-cyan-500/10">
-                  <p className="text-sm font-semibold text-cyan-400 mb-2">Prediction</p>
-                  <p className="text-sm text-muted-foreground">
-                    Score for (user i, product j) = U[i] · V[j] (dot product of latent vectors).
-                    Higher scores → stronger predicted preference for unowned products.
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-muted/20 rounded-lg p-3 border border-border/30 text-sm">
-                <Lightbulb className="w-4 h-4 inline mr-1 text-cyan-400" />
-                <strong>Why it&apos;s powerful:</strong> MF can capture patterns invisible to
-                rule-based methods — e.g., &quot;users who buy premium electronics also tend to buy
-                designer fashion&quot; without explicit tags connecting them.
-              </div>
-            </CardContent>
-          </Card>
+          <ALSDemo />
         </section>
 
         <Separator className="opacity-30" />

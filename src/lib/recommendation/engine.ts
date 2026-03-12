@@ -279,7 +279,7 @@ export function getUserBasedRecommendations(
 // MATRIX FACTORIZATION (Alternating Least Squares)
 // ============================================================
 
-function createInteractionMatrix(allUsers: User[], allProducts: Product[]): number[][] {
+export function createInteractionMatrix(allUsers: User[], allProducts: Product[]): number[][] {
   return allUsers.map((user) => {
     const purchaseSet = new Set(user.purchaseHistory);
     return allProducts.map((p) => (purchaseSet.has(p.id) ? 1 : 0));
@@ -298,7 +298,7 @@ function randomMatrix(rows: number, cols: number, seed: number = 42): number[][]
   );
 }
 
-function alsFactorize(
+export function alsFactorize(
   R: number[][],
   k: number = 5,
   iterations: number = 50,
