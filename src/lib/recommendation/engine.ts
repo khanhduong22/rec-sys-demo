@@ -5,7 +5,7 @@ export interface Recommendation {
   product: Product;
   score: number;
   reason: string;
-  reasonType: "content-based" | "frequently-bought-together" | "user-based" | "matrix-factorization";
+  reasonType: "content-based" | "frequently-bought-together" | "user-based" | "matrix-factorization" | "hybrid";
   sourceProductId?: string;
   sourceProductName?: string;
 }
@@ -385,6 +385,107 @@ export function getMatrixFactorizationRecommendations(
     reason: `Discovered by AI pattern analysis`,
     reasonType: "matrix-factorization",
   }));
+}
+
+// ============================================================
+// HYBRID RANKER — Weighted Ensemble
+// ============================================================
+
+export interface HybridWeights {
+  contentBased: number;
+  userBased: number;
+  frequentlyBought: number;
+  matrixFactorization: number;
+}
+
+const DEFAULT_WEIGHTS: HybridWeights = {
+  contentBased: 0.3,
+  userBased: 0.25,
+  frequentlyBought: 0.2,
+  matrixFactorization: 0.25,
+};
+
+function normalizeScores(recs: Recommendation[]): Map<string, number> {
+  const map = new Map<string, number>();
+  if (recs.length === 0) return map;
+  const maxScore = Math.max(...recs.map((r) => r.score), 0.01);
+  for (const rec of recs) {
+    map.set(rec.product.id, rec.score / maxScore);
+  }
+  return map;
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  "content-based": "CB",
+  "user-based": "UB",
+  "frequently-bought-together": "FBT",
+  "matrix-factorization": "MF",
+};
+
+export function getHybridRecommendations(
+  user: User,
+  topN: number = 6,
+  weights: HybridWeights = DEFAULT_WEIGHTS,
+  boosts: Map<string, number> = new Map(),
+): Recommendation[] {
+  const cb = getContentBasedRecommendations(user, 10);
+  const ub = getUserBasedRecommendations(user, 10);
+  const fbt = getFrequentlyBoughtTogether(user, 10);
+  const mf = getMatrixFactorizationRecommendations(user, 10);
+
+  const cbScores = normalizeScores(cb);
+  const ubScores = normalizeScores(ub);
+  const fbtScores = normalizeScores(fbt);
+  const mfScores = normalizeScores(mf);
+
+  // Collect all candidate product IDs
+  const allProductIds = new Set([
+    ...cbScores.keys(),
+    ...ubScores.keys(),
+    ...fbtScores.keys(),
+    ...mfScores.keys(),
+  ]);
+
+  const scored: Array<{ productId: string; finalScore: number; sources: string[] }> = [];
+
+  for (const pid of allProductIds) {
+    const cbVal = cbScores.get(pid) ?? 0;
+    const ubVal = ubScores.get(pid) ?? 0;
+    const fbtVal = fbtScores.get(pid) ?? 0;
+    const mfVal = mfScores.get(pid) ?? 0;
+
+    let finalScore =
+      cbVal * weights.contentBased +
+      ubVal * weights.userBased +
+      fbtVal * weights.frequentlyBought +
+      mfVal * weights.matrixFactorization;
+
+    // Apply user feedback boosts
+    const boost = boosts.get(pid);
+    if (boost !== undefined) {
+      finalScore += boost;
+    }
+
+    const sources: string[] = [];
+    if (cbVal > 0) sources.push(SOURCE_LABELS["content-based"]);
+    if (ubVal > 0) sources.push(SOURCE_LABELS["user-based"]);
+    if (fbtVal > 0) sources.push(SOURCE_LABELS["frequently-bought-together"]);
+    if (mfVal > 0) sources.push(SOURCE_LABELS["matrix-factorization"]);
+
+    scored.push({ productId: pid, finalScore, sources });
+  }
+
+  scored.sort((a, b) => b.finalScore - a.finalScore);
+
+  return scored.slice(0, topN).map((s) => {
+    const product = products.find((p) => p.id === s.productId)!;
+    return {
+      product,
+      score: Math.round(s.finalScore * 100) / 100,
+      reason: `Ensemble (${s.sources.join(" + ")})`,
+      reasonType: "hybrid" as const,
+    };
+  });
 }
 
 // ============================================================

@@ -2,14 +2,19 @@
 
 import { Recommendation } from "@/lib/recommendation/engine";
 import { ProductCard } from "@/components/product-card";
-import { Sparkles, Users, TrendingUp, UserCheck, Cpu } from "lucide-react";
+import { Sparkles, Users, TrendingUp, UserCheck, Cpu, Trophy, RefreshCw } from "lucide-react";
 
 interface RecommendationSectionProps {
   readonly contentBased: Recommendation[];
   readonly frequentlyBoughtTogether: Recommendation[];
   readonly userBased: Recommendation[];
   readonly matrixFactorization: Recommendation[];
+  readonly hybridRanked: Recommendation[];
   readonly isLoading: boolean;
+  readonly isReranking?: boolean;
+  readonly onLike?: (productId: string) => void;
+  readonly onDislike?: (productId: string) => void;
+  readonly feedback?: Map<string, "liked" | "disliked">;
 }
 
 function SectionSkeleton({ count }: Readonly<{ count: number }>) {
@@ -30,12 +35,17 @@ export function RecommendationSection({
   frequentlyBoughtTogether,
   userBased,
   matrixFactorization,
+  hybridRanked,
   isLoading,
+  isReranking = false,
+  onLike,
+  onDislike,
+  feedback = new Map(),
 }: RecommendationSectionProps) {
   if (isLoading) {
     return (
       <div className="space-y-8">
-        {[1, 2, 3, 4].map((n) => (
+        {[1, 2, 3, 4, 5].map((n) => (
           <div key={`loading-${String(n)}`}>
             <div className="h-8 w-64 bg-muted/30 rounded-lg animate-pulse mb-4" />
             <SectionSkeleton count={n <= 2 ? 3 : 2} />
@@ -47,6 +57,52 @@ export function RecommendationSection({
 
   return (
     <div className="space-y-10">
+      {/* 🏆 Smart Picks — Hybrid Ranker */}
+      {hybridRanked.length > 0 && (
+        <section id="hybrid-section" className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 via-yellow-500/20 to-orange-500/20 border border-amber-500/20">
+              <Trophy className="w-5 h-5 text-amber-400" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                Smart Picks
+                <TrendingUp className="w-4 h-4 text-green-400" />
+                {isReranking && (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-normal text-cyan-400 animate-pulse">
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    Re-ranking...
+                  </span>
+                )}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Hybrid ensemble — weighted combination of all 4 algorithms
+              </p>
+            </div>
+          </div>
+          <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 transition-opacity duration-300 ${isReranking ? "opacity-50" : ""}`}>
+            {hybridRanked.map((rec, index) => (
+              <div
+                key={rec.product.id}
+                className="animate-in fade-in slide-in-from-bottom-4"
+                style={{ animationDelay: `${index * 100}ms`, animationFillMode: "both" }}
+              >
+                <ProductCard
+                  product={rec.product}
+                  reason={rec.reason}
+                  reasonType={rec.reasonType}
+                  score={rec.score}
+                  showTags
+                  onLike={onLike}
+                  onDislike={onDislike}
+                  feedbackState={feedback.get(rec.product.id) ?? null}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Content-Based Recommendations */}
       {contentBased.length > 0 && (
         <section id="content-based-section" className="animate-in fade-in slide-in-from-bottom-4 duration-700">

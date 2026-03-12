@@ -2,9 +2,9 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import { users } from "@/lib/data/users";
+import { users, getUserById } from "@/lib/data/users";
 import { products } from "@/lib/data/products";
-import { Recommendation } from "@/lib/recommendation/engine";
+import { Recommendation, getHybridRecommendations } from "@/lib/recommendation/engine";
 import { UserSelector } from "@/components/user-selector";
 import { ProductCard } from "@/components/product-card";
 import { RecommendationSection } from "@/components/recommendation-section";
@@ -28,7 +28,10 @@ export default function HomePage() {
   const [frequentlyBought, setFrequentlyBought] = useState<Recommendation[]>([]);
   const [userBased, setUserBased] = useState<Recommendation[]>([]);
   const [matrixFactorization, setMatrixFactorization] = useState<Recommendation[]>([]);
+  const [hybridRanked, setHybridRanked] = useState<Recommendation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isReranking, setIsReranking] = useState(false);
+  const [feedback, setFeedback] = useState<Map<string, "liked" | "disliked">>(new Map());
 
   const selectedUser = selectedUserId
     ? users.find((u) => u.id === selectedUserId)
@@ -37,6 +40,7 @@ export default function HomePage() {
   const handleUserSelect = useCallback(async (userId: string) => {
     setSelectedUserId(userId);
     setIsLoading(true);
+    setFeedback(new Map());
 
     try {
       const res = await fetch(`/api/recommendations?userId=${userId}`);
@@ -45,12 +49,57 @@ export default function HomePage() {
       setFrequentlyBought(data.frequentlyBoughtTogether || []);
       setUserBased(data.userBased || []);
       setMatrixFactorization(data.matrixFactorization || []);
+      setHybridRanked(data.hybridRanked || []);
     } catch (error) {
       console.error("Failed to fetch recommendations:", error);
     } finally {
       setIsLoading(false);
     }
   }, []);
+
+  const handleFeedback = useCallback(
+    (productId: string, type: "liked" | "disliked") => {
+      if (!selectedUserId) return;
+
+      setFeedback((prev) => {
+        const next = new Map(prev);
+        const current = next.get(productId);
+        if (current === type) {
+          next.delete(productId); // toggle off
+        } else {
+          next.set(productId, type);
+        }
+
+        // Re-rank with boosts
+        setIsReranking(true);
+        setTimeout(() => {
+          const user = getUserById(selectedUserId);
+          if (user) {
+            const boosts = new Map<string, number>();
+            for (const [pid, fb] of next.entries()) {
+              boosts.set(pid, fb === "liked" ? 0.3 : -0.5);
+            }
+            const reranked = getHybridRecommendations(user, 6, undefined, boosts);
+            setHybridRanked(reranked);
+          }
+          setIsReranking(false);
+        }, 400); // slight delay for animation
+
+        return next;
+      });
+    },
+    [selectedUserId]
+  );
+
+  const handleLike = useCallback(
+    (productId: string) => handleFeedback(productId, "liked"),
+    [handleFeedback]
+  );
+
+  const handleDislike = useCallback(
+    (productId: string) => handleFeedback(productId, "disliked"),
+    [handleFeedback]
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -150,7 +199,12 @@ export default function HomePage() {
             frequentlyBoughtTogether={frequentlyBought}
             userBased={userBased}
             matrixFactorization={matrixFactorization}
+            hybridRanked={hybridRanked}
             isLoading={isLoading}
+            isReranking={isReranking}
+            onLike={handleLike}
+            onDislike={handleDislike}
+            feedback={feedback}
           />
         )}
 

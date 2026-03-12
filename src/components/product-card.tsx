@@ -3,14 +3,17 @@
 import { Product } from "@/lib/data/products";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, ShoppingBag, Tag, Users, Cpu } from "lucide-react";
+import { Sparkles, ShoppingBag, Tag, Users, Cpu, ThumbsUp, ThumbsDown, Trophy } from "lucide-react";
 
 interface ProductCardProps {
   readonly product: Product;
   readonly reason?: string;
-  readonly reasonType?: "content-based" | "frequently-bought-together" | "user-based" | "matrix-factorization";
+  readonly reasonType?: "content-based" | "frequently-bought-together" | "user-based" | "matrix-factorization" | "hybrid";
   readonly score?: number;
   readonly showTags?: boolean;
+  readonly onLike?: (productId: string) => void;
+  readonly onDislike?: (productId: string) => void;
+  readonly feedbackState?: "liked" | "disliked" | null;
 }
 
 const badgeStyles: Record<string, { className: string; icon: React.ReactNode }> = {
@@ -30,6 +33,10 @@ const badgeStyles: Record<string, { className: string; icon: React.ReactNode }> 
     className: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
     icon: <Cpu className="w-3 h-3" />,
   },
+  "hybrid": {
+    className: "bg-gradient-to-r from-amber-500/10 to-yellow-500/10 text-amber-300 border-amber-500/20",
+    icon: <Trophy className="w-3 h-3" />,
+  },
 };
 
 export function ProductCard({
@@ -38,11 +45,14 @@ export function ProductCard({
   reasonType,
   score,
   showTags = false,
+  onLike,
+  onDislike,
+  feedbackState,
 }: ProductCardProps) {
   const badge = reasonType ? badgeStyles[reasonType] : null;
 
   return (
-    <Card className="group relative overflow-hidden bg-card/40 backdrop-blur-sm border-border/30 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all duration-500 hover:-translate-y-1">
+    <Card className={`group relative overflow-hidden bg-card/40 backdrop-blur-sm border-border/30 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all duration-500 hover:-translate-y-1 ${feedbackState === "liked" ? "ring-1 ring-emerald-500/30" : ""} ${feedbackState === "disliked" ? "opacity-40" : ""}`}>
       {/* Gradient glow on hover */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
@@ -88,9 +98,39 @@ export function ProductCard({
             <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
               {product.description}
             </p>
-            <p className="text-lg font-bold text-primary mt-2">
-              ${product.price.toFixed(2)}
-            </p>
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-lg font-bold text-primary">
+                ${product.price.toFixed(2)}
+              </p>
+
+              {/* Like/Dislike buttons */}
+              {(onLike || onDislike) && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onLike?.(product.id); }}
+                    className={`p-1.5 rounded-lg transition-all ${
+                      feedbackState === "liked"
+                        ? "bg-emerald-500/20 text-emerald-400"
+                        : "text-muted-foreground/50 hover:bg-emerald-500/10 hover:text-emerald-400"
+                    }`}
+                    title="Like — boost similar products"
+                  >
+                    <ThumbsUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDislike?.(product.id); }}
+                    className={`p-1.5 rounded-lg transition-all ${
+                      feedbackState === "disliked"
+                        ? "bg-rose-500/20 text-rose-400"
+                        : "text-muted-foreground/50 hover:bg-rose-500/10 hover:text-rose-400"
+                    }`}
+                    title="Dislike — penalize this product"
+                  >
+                    <ThumbsDown className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

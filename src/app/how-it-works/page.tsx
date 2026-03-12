@@ -1292,6 +1292,95 @@ export default function HowItWorksPage() {
           </div>
         </Tabs>
 
+        {/* Evolution Timeline */}
+        <section>
+          <h2 className="text-xl font-bold mb-6">🕰️ Evolution of Recommendation Systems</h2>
+          <div className="relative">
+            {/* Vertical line */}
+            <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-muted-foreground/20 via-cyan-500/40 to-muted-foreground/20" />
+
+            {[
+              {
+                era: "Gen 1",
+                year: "1990s",
+                title: "Keyword Matching / Content-Based",
+                desc: "Simple text search and tag matching. Products recommended based on shared attributes.",
+                example: "Early search engines, basic e-commerce filters",
+                color: "text-muted-foreground",
+                bg: "bg-muted/20 border-border/30",
+                dot: "bg-muted-foreground/50",
+              },
+              {
+                era: "Gen 2",
+                year: "2000s",
+                title: "Collaborative Filtering (User-Item)",
+                desc: "\"People who bought X also bought Y.\" Pioneered by Amazon. Uses purchase co-occurrence and user similarity.",
+                example: "Amazon, early Netflix",
+                color: "text-emerald-400",
+                bg: "bg-emerald-500/5 border-emerald-500/20",
+                dot: "bg-emerald-500",
+              },
+              {
+                era: "Gen 3",
+                year: "2009+",
+                title: "Matrix Factorization (SVD / ALS)",
+                desc: "Decompose user×item matrix into latent factors. Netflix Prize ($1M) advanced this dramatically.",
+                example: "Netflix Prize winner, Spotify Discover Weekly",
+                color: "text-cyan-400",
+                bg: "bg-cyan-500/10 border-cyan-500/30",
+                dot: "bg-cyan-500",
+                current: true,
+              },
+              {
+                era: "Gen 4",
+                year: "2016+",
+                title: "Deep Learning (Neural CF, Wide & Deep)",
+                desc: "Neural networks learn non-linear user-item interactions. Two-Tower models for retrieval + ranking.",
+                example: "YouTube DNN, Google Play Wide & Deep",
+                color: "text-blue-400",
+                bg: "bg-blue-500/5 border-blue-500/20",
+                dot: "bg-blue-500/50",
+              },
+              {
+                era: "Gen 5",
+                year: "2022+",
+                title: "Graph, Transformer & Generative AI",
+                desc: "Graph Neural Networks model user-item-context relationships. LLMs generate personalized recommendations via conversation.",
+                example: "TikTok For You, ChatGPT Shopping, Pinterest",
+                color: "text-violet-400",
+                bg: "bg-violet-500/5 border-violet-500/20",
+                dot: "bg-violet-500/50",
+              },
+            ].map((item, i) => (
+              <div key={item.era} className="relative pl-16 pb-8 last:pb-0">
+                {/* Dot */}
+                <div className={`absolute left-4 top-2 w-5 h-5 rounded-full border-2 border-background ${item.dot} ${item.current ? "ring-2 ring-cyan-400/50 ring-offset-2 ring-offset-background" : ""}`} />
+
+                <Card className={`${item.bg} backdrop-blur-sm ${item.current ? "shadow-lg shadow-cyan-500/10" : ""}`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <Badge variant="outline" className={`text-[10px] ${item.color}`}>
+                        {item.era}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">{item.year}</span>
+                      {item.current && (
+                        <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-[10px]">
+                          ← We Are Here
+                        </Badge>
+                      )}
+                    </div>
+                    <h3 className={`text-sm font-bold ${item.color} mb-1`}>{item.title}</h3>
+                    <p className="text-xs text-muted-foreground mb-2">{item.desc}</p>
+                    <p className="text-[10px] text-muted-foreground/60">
+                      📌 {item.example}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* CTA */}
         <div className="text-center py-8">
           <Link

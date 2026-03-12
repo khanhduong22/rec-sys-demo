@@ -5,6 +5,7 @@ import {
   getFrequentlyBoughtTogether,
   getUserBasedRecommendations,
   getMatrixFactorizationRecommendations,
+  getHybridRecommendations,
 } from "@/lib/recommendation/engine";
 
 export async function GET(request: NextRequest) {
@@ -27,6 +28,7 @@ export async function GET(request: NextRequest) {
   const frequentlyBoughtTogether = getFrequentlyBoughtTogether(user, 4);
   const userBased = getUserBasedRecommendations(user, 4);
   const matrixFactorization = getMatrixFactorizationRecommendations(user, 4);
+  const hybridRanked = getHybridRecommendations(user, 6);
 
   return NextResponse.json({
     userId: user.id,
@@ -35,5 +37,6 @@ export async function GET(request: NextRequest) {
     frequentlyBoughtTogether,
     userBased,
     matrixFactorization,
+    hybridRanked,
   });
 }
