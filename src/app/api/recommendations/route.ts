@@ -3,6 +3,8 @@ import { getUserById } from "@/lib/data/users";
 import {
   getContentBasedRecommendations,
   getFrequentlyBoughtTogether,
+  getUserBasedRecommendations,
+  getMatrixFactorizationRecommendations,
 } from "@/lib/recommendation/engine";
 
 export async function GET(request: NextRequest) {
@@ -23,11 +25,15 @@ export async function GET(request: NextRequest) {
 
   const contentBased = getContentBasedRecommendations(user, 6);
   const frequentlyBoughtTogether = getFrequentlyBoughtTogether(user, 4);
+  const userBased = getUserBasedRecommendations(user, 4);
+  const matrixFactorization = getMatrixFactorizationRecommendations(user, 4);
 
   return NextResponse.json({
     userId: user.id,
     userName: user.name,
     contentBased,
     frequentlyBoughtTogether,
+    userBased,
+    matrixFactorization,
   });
 }

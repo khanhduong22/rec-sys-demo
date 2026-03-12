@@ -3,15 +3,34 @@
 import { Product } from "@/lib/data/products";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, ShoppingBag, Tag } from "lucide-react";
+import { Sparkles, ShoppingBag, Tag, Users, Cpu } from "lucide-react";
 
 interface ProductCardProps {
   readonly product: Product;
   readonly reason?: string;
-  readonly reasonType?: "content-based" | "frequently-bought-together";
+  readonly reasonType?: "content-based" | "frequently-bought-together" | "user-based" | "matrix-factorization";
   readonly score?: number;
   readonly showTags?: boolean;
 }
+
+const badgeStyles: Record<string, { className: string; icon: React.ReactNode }> = {
+  "content-based": {
+    className: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+    icon: <Sparkles className="w-3 h-3" />,
+  },
+  "frequently-bought-together": {
+    className: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    icon: <ShoppingBag className="w-3 h-3" />,
+  },
+  "user-based": {
+    className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    icon: <Users className="w-3 h-3" />,
+  },
+  "matrix-factorization": {
+    className: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+    icon: <Cpu className="w-3 h-3" />,
+  },
+};
 
 export function ProductCard({
   product,
@@ -20,6 +39,8 @@ export function ProductCard({
   score,
   showTags = false,
 }: ProductCardProps) {
+  const badge = reasonType ? badgeStyles[reasonType] : null;
+
   return (
     <Card className="group relative overflow-hidden bg-card/40 backdrop-blur-sm border-border/30 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all duration-500 hover:-translate-y-1">
       {/* Gradient glow on hover */}
@@ -27,20 +48,12 @@ export function ProductCard({
 
       <CardContent className="relative p-5">
         {/* Recommendation badge */}
-        {reason && (
+        {reason && badge && (
           <div className="mb-3 animate-in fade-in slide-in-from-top-2 duration-500">
             <div
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
-                reasonType === "content-based"
-                  ? "bg-violet-500/10 text-violet-400 border-violet-500/20"
-                  : "bg-amber-500/10 text-amber-400 border-amber-500/20"
-              }`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${badge.className}`}
             >
-              {reasonType === "content-based" ? (
-                <Sparkles className="w-3 h-3" />
-              ) : (
-                <ShoppingBag className="w-3 h-3" />
-              )}
+              {badge.icon}
               {reason}
             </div>
           </div>

@@ -17,6 +17,8 @@ import {
   Target,
   Lightbulb,
   ChevronRight,
+  UserCheck,
+  Cpu,
 } from "lucide-react";
 import { products } from "@/lib/data/products";
 import { users } from "@/lib/data/users";
@@ -618,7 +620,144 @@ export default function HowItWorksPage() {
         <Separator className="opacity-30" />
 
         {/* ============================================================
-            COMPARISON TABLE
+            USER-BASED FILTERING
+        ============================================================ */}
+        <section>
+          <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+            <UserCheck className="w-5 h-5 text-emerald-400" />
+            User-Based Collaborative Filtering
+          </h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            Instead of comparing products, this algorithm compares{" "}
+            <strong className="text-foreground">users</strong>. It encodes each
+            user as a binary purchase vector and uses Cosine Similarity to find
+            &quot;neighbors&quot; with similar tastes.
+          </p>
+          <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+            <CardContent className="p-6 space-y-4">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Users className="w-5 h-5 text-emerald-400" />
+                How It Works
+              </h3>
+              <div className="space-y-3">
+                <div className="bg-emerald-500/5 rounded-lg p-4 border border-emerald-500/10">
+                  <p className="text-sm font-semibold text-emerald-400 mb-2">Step 1: Encode Users</p>
+                  <p className="text-sm text-muted-foreground">
+                    Each user → a binary vector across all 20 products (1 = purchased, 0 = not).
+                    E.g., Alex [1,1,0,0,1,0,1,1,...], Jordan [0,0,1,1,0,1,0,0,...]
+                  </p>
+                </div>
+                <div className="bg-emerald-500/5 rounded-lg p-4 border border-emerald-500/10">
+                  <p className="text-sm font-semibold text-emerald-400 mb-2">Step 2: Find Similar Users</p>
+                  <p className="text-sm text-muted-foreground">
+                    Compute cosine similarity between user vectors. Users who bought
+                    overlapping products get higher similarity scores.
+                  </p>
+                </div>
+                <div className="bg-emerald-500/5 rounded-lg p-4 border border-emerald-500/10">
+                  <p className="text-sm font-semibold text-emerald-400 mb-2">Step 3: Recommend</p>
+                  <p className="text-sm text-muted-foreground">
+                    Take products from similar users that the target user hasn&apos;t bought yet.
+                    Weight recommendations by user similarity score.
+                  </p>
+                </div>
+              </div>
+              <div className="bg-muted/20 rounded-lg p-3 border border-border/30 text-sm">
+                <Lightbulb className="w-4 h-4 inline mr-1 text-emerald-400" />
+                <strong>Key difference from item-based:</strong> This approach can recommend
+                products from completely different categories if users with similar taste bought them.
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <Separator className="opacity-30" />
+
+        {/* ============================================================
+            MATRIX FACTORIZATION
+        ============================================================ */}
+        <section>
+          <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+            <Cpu className="w-5 h-5 text-cyan-400" />
+            Matrix Factorization (ALS)
+          </h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            The most advanced technique. It discovers{" "}
+            <strong className="text-foreground">hidden (latent) factors</strong>{" "}
+            that explain purchasing patterns — things like &quot;tech enthusiast&quot; or
+            &quot;fashion-forward&quot; that aren&apos;t explicitly tagged.
+          </p>
+          <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+            <CardContent className="p-6 space-y-4">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Cpu className="w-5 h-5 text-cyan-400" />
+                Alternating Least Squares (ALS)
+              </h3>
+
+              {/* Visual decomposition */}
+              <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-xl p-6 border border-cyan-500/20 text-center">
+                <div className="text-lg font-mono font-bold text-foreground flex items-center justify-center gap-3 flex-wrap">
+                  <span className="px-3 py-1 bg-muted/30 rounded">
+                    R<sub className="text-xs">5×20</sub>
+                  </span>
+                  <span className="text-muted-foreground">≈</span>
+                  <span className="px-3 py-1 bg-cyan-500/20 rounded text-cyan-400">
+                    U<sub className="text-xs">5×k</sub>
+                  </span>
+                  <span className="text-muted-foreground">×</span>
+                  <span className="px-3 py-1 bg-blue-500/20 rounded text-blue-400">
+                    V<sub className="text-xs">20×k</sub>
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-muted-foreground">
+                  <div>
+                    <strong className="text-foreground">R</strong> = User×Product
+                    <br />interaction matrix (0/1)
+                  </div>
+                  <div>
+                    <strong className="text-cyan-400">U</strong> = User latent factors
+                    <br />k = 5 hidden dimensions
+                  </div>
+                  <div>
+                    <strong className="text-blue-400">V</strong> = Product latent factors
+                    <br />50 ALS iterations
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="bg-cyan-500/5 rounded-lg p-4 border border-cyan-500/10">
+                  <p className="text-sm font-semibold text-cyan-400 mb-2">How ALS Works</p>
+                  <p className="text-sm text-muted-foreground">
+                    1. Initialize U and V with random values<br />
+                    2. Fix V, optimize U to minimize reconstruction error<br />
+                    3. Fix U, optimize V to minimize reconstruction error<br />
+                    4. Repeat 50 times until convergence
+                  </p>
+                </div>
+                <div className="bg-cyan-500/5 rounded-lg p-4 border border-cyan-500/10">
+                  <p className="text-sm font-semibold text-cyan-400 mb-2">Prediction</p>
+                  <p className="text-sm text-muted-foreground">
+                    Score for (user i, product j) = U[i] · V[j] (dot product of latent vectors).
+                    Higher scores → stronger predicted preference for unowned products.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-muted/20 rounded-lg p-3 border border-border/30 text-sm">
+                <Lightbulb className="w-4 h-4 inline mr-1 text-cyan-400" />
+                <strong>Why it&apos;s powerful:</strong> MF can capture patterns invisible to
+                rule-based methods — e.g., &quot;users who buy premium electronics also tend to buy
+                designer fashion&quot; without explicit tags connecting them.
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <Separator className="opacity-30" />
+
+        {/* ============================================================
+            COMPARISON TABLE (4 algorithms)
         ============================================================ */}
         <section>
           <h2 className="text-xl font-bold mb-6">📊 Algorithm Comparison</h2>
@@ -628,44 +767,66 @@ export default function HowItWorksPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-muted/30">
-                      <th className="p-4 text-left">Aspect</th>
-                      <th className="p-4 text-left text-violet-400">Content-Based</th>
-                      <th className="p-4 text-left text-amber-400">Frequently Bought Together</th>
+                      <th className="p-3 text-left">Aspect</th>
+                      <th className="p-3 text-left text-violet-400">Item-Based</th>
+                      <th className="p-3 text-left text-emerald-400">User-Based</th>
+                      <th className="p-3 text-left text-amber-400">FBT</th>
+                      <th className="p-3 text-left text-cyan-400">Matrix Factorization</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr className="border-t border-border/20">
-                      <td className="p-4 font-medium">Data Used</td>
-                      <td className="p-4">Product tags/attributes</td>
-                      <td className="p-4">User purchase histories</td>
+                      <td className="p-3 font-medium">Data</td>
+                      <td className="p-3">Product tags</td>
+                      <td className="p-3">User purchase vectors</td>
+                      <td className="p-3">Co-purchase counts</td>
+                      <td className="p-3">User×Product matrix</td>
                     </tr>
                     <tr className="border-t border-border/20">
-                      <td className="p-4 font-medium">Algorithm</td>
-                      <td className="p-4">Cosine Similarity on vectors</td>
-                      <td className="p-4">Co-occurrence counting</td>
+                      <td className="p-3 font-medium">Method</td>
+                      <td className="p-3">Cosine on tag vectors</td>
+                      <td className="p-3">Cosine on user vectors</td>
+                      <td className="p-3">Co-occurrence</td>
+                      <td className="p-3">ALS latent factors</td>
                     </tr>
                     <tr className="border-t border-border/20">
-                      <td className="p-4 font-medium">Strength</td>
-                      <td className="p-4">Works with new products (no history needed)</td>
-                      <td className="p-4">Discovers cross-category patterns</td>
+                      <td className="p-3 font-medium">Strength</td>
+                      <td className="p-3">No user data needed</td>
+                      <td className="p-3">Cross-category discovery</td>
+                      <td className="p-3">Simple, intuitive</td>
+                      <td className="p-3">Hidden pattern detection</td>
                     </tr>
                     <tr className="border-t border-border/20">
-                      <td className="p-4 font-medium">Weakness</td>
-                      <td className="p-4">Limited to tag quality</td>
-                      <td className="p-4">Needs sufficient user data</td>
+                      <td className="p-3 font-medium">Weakness</td>
+                      <td className="p-3">Tag quality dependent</td>
+                      <td className="p-3">Cold-start problem</td>
+                      <td className="p-3">Needs purchase data</td>
+                      <td className="p-3">Computationally expensive</td>
                     </tr>
                     <tr className="border-t border-border/20">
-                      <td className="p-4 font-medium">Badge</td>
-                      <td className="p-4">
-                        <Badge className="bg-violet-500/10 text-violet-400 border-violet-500/20">
+                      <td className="p-3 font-medium">Badge</td>
+                      <td className="p-3">
+                        <Badge className="bg-violet-500/10 text-violet-400 border-violet-500/20 text-xs">
                           <Sparkles className="w-3 h-3 mr-1" />
                           Because you liked X
                         </Badge>
                       </td>
-                      <td className="p-4">
-                        <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20">
+                      <td className="p-3">
+                        <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-xs">
+                          <Users className="w-3 h-3 mr-1" />
+                          Users like you
+                        </Badge>
+                      </td>
+                      <td className="p-3">
+                        <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-xs">
                           <ShoppingBag className="w-3 h-3 mr-1" />
                           Often bought with X
+                        </Badge>
+                      </td>
+                      <td className="p-3">
+                        <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-xs">
+                          <Cpu className="w-3 h-3 mr-1" />
+                          AI-discovered
                         </Badge>
                       </td>
                     </tr>

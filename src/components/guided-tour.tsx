@@ -43,14 +43,30 @@ const tourSteps: Step[] = [
     target: "#content-based-section",
     content: (
       <div>
-        <h3 className="font-bold text-base mb-2">🟣 Step 3: Content-Based Filtering</h3>
+        <h3 className="font-bold text-base mb-2">🟣 Step 3: Item-Based Filtering</h3>
         <p className="text-sm mb-2">
-          The engine uses <strong>Cosine Similarity</strong> on product tag vectors
-          to find products similar to what the user already bought.
+          Uses <strong>Cosine Similarity</strong> on product tag vectors
+          to find items similar to what the user already bought.
         </p>
         <p className="text-sm text-violet-400">
-          Each card shows a violet badge explaining <em>why</em> it was recommended
-          (e.g., &quot;Because you liked UltraBook Pro&quot;).
+          Violet badges show the source match.
+        </p>
+      </div>
+    ),
+    placement: "top",
+    spotlightPadding: 12,
+  },
+  {
+    target: "#user-based-section",
+    content: (
+      <div>
+        <h3 className="font-bold text-base mb-2">🟢 Step 4: User-Based Filtering</h3>
+        <p className="text-sm mb-2">
+          Finds <strong>users with similar purchase patterns</strong> and
+          recommends what they bought that you haven&apos;t.
+        </p>
+        <p className="text-sm text-emerald-400">
+          Green badges indicate user-similarity-based recommendations.
         </p>
       </div>
     ),
@@ -61,14 +77,31 @@ const tourSteps: Step[] = [
     target: "#fbt-section",
     content: (
       <div>
-        <h3 className="font-bold text-base mb-2">🟡 Step 4: Frequently Bought Together</h3>
+        <h3 className="font-bold text-base mb-2">🟡 Step 5: Frequently Bought Together</h3>
         <p className="text-sm mb-2">
-          This section analyzes <strong>other users&apos; purchase patterns</strong>.
-          If someone who bought the same items also bought something else,
-          it appears here.
+          Analyzes <strong>co-purchase patterns</strong> — if users who
+          bought the same items also bought something else, it appears here.
         </p>
         <p className="text-sm text-amber-400">
-          Amber badges show the co-purchase relationship.
+          Amber badges show co-purchase relationships.
+        </p>
+      </div>
+    ),
+    placement: "top",
+    spotlightPadding: 12,
+  },
+  {
+    target: "#mf-section",
+    content: (
+      <div>
+        <h3 className="font-bold text-base mb-2">🔵 Step 6: Matrix Factorization</h3>
+        <p className="text-sm mb-2">
+          <strong>ALS (Alternating Least Squares)</strong> decomposes the
+          user-item matrix into latent factors, discovering hidden patterns
+          that rule-based methods can&apos;t detect.
+        </p>
+        <p className="text-sm text-cyan-400">
+          Cyan badges mark AI-discovered patterns.
         </p>
       </div>
     ),
@@ -79,7 +112,7 @@ const tourSteps: Step[] = [
     target: "#similarity-matrix-section",
     content: (
       <div>
-        <h3 className="font-bold text-base mb-2">🧮 Step 5: Similarity Matrix</h3>
+        <h3 className="font-bold text-base mb-2">🧮 Step 7: Similarity Matrix</h3>
         <p className="text-sm mb-2">
           This heatmap visualizes the <strong>cosine similarity</strong> between
           every pair of products. Greener cells = more similar tag profiles.
@@ -98,9 +131,9 @@ const tourSteps: Step[] = [
       <div>
         <h3 className="font-bold text-base mb-2">📖 Deep Dive</h3>
         <p className="text-sm">
-          Want to understand the math? Visit the <strong>&quot;How It Works&quot;</strong> page
-          for an interactive breakdown — including a live vector comparison tool
-          where you can pick any two products and see the calculation step by step.
+          Visit the <strong>&quot;How It Works&quot;</strong> page
+          for an interactive breakdown of every algorithm — including live
+          vector comparisons, ALS visualizations, and more.
         </p>
       </div>
     ),
@@ -125,7 +158,7 @@ export function GuidedTour({ hasSelectedUser }: GuidedTourProps) {
   // Filter steps based on whether user is selected
   const activeSteps = hasSelectedUser
     ? tourSteps
-    : tourSteps.filter((_, i) => i === 0 || i === 5); // Only show user selector & deep dive
+    : tourSteps.filter((_, i) => i === 0 || i === 7); // Only show user selector & deep dive
 
   const handleCallback = useCallback(
     (data: CallBackProps) => {

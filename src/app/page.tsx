@@ -25,9 +25,9 @@ import {
 export default function HomePage() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [contentBased, setContentBased] = useState<Recommendation[]>([]);
-  const [frequentlyBought, setFrequentlyBought] = useState<Recommendation[]>(
-    []
-  );
+  const [frequentlyBought, setFrequentlyBought] = useState<Recommendation[]>([]);
+  const [userBased, setUserBased] = useState<Recommendation[]>([]);
+  const [matrixFactorization, setMatrixFactorization] = useState<Recommendation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const selectedUser = selectedUserId
@@ -43,6 +43,8 @@ export default function HomePage() {
       const data = await res.json();
       setContentBased(data.contentBased || []);
       setFrequentlyBought(data.frequentlyBoughtTogether || []);
+      setUserBased(data.userBased || []);
+      setMatrixFactorization(data.matrixFactorization || []);
     } catch (error) {
       console.error("Failed to fetch recommendations:", error);
     } finally {
@@ -146,6 +148,8 @@ export default function HomePage() {
           <RecommendationSection
             contentBased={contentBased}
             frequentlyBoughtTogether={frequentlyBought}
+            userBased={userBased}
+            matrixFactorization={matrixFactorization}
             isLoading={isLoading}
           />
         )}
