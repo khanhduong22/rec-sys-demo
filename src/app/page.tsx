@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Link from "next/link";
 import { users } from "@/lib/data/users";
 import { products } from "@/lib/data/products";
 import { Recommendation } from "@/lib/recommendation/engine";
@@ -8,6 +9,7 @@ import { UserSelector } from "@/components/user-selector";
 import { ProductCard } from "@/components/product-card";
 import { RecommendationSection } from "@/components/recommendation-section";
 import { SimilarityMatrix } from "@/components/similarity-matrix";
+import { GuidedTour } from "@/components/guided-tour";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,6 +19,7 @@ import {
   ArrowDown,
   ExternalLink,
   Package,
+  BookOpen,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -77,6 +80,16 @@ export default function HomePage() {
               collaborative patterns.
             </p>
 
+            {/* How It Works Link */}
+            <Link
+              id="how-it-works-link"
+              href="/how-it-works"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-card/50 border border-border/30 hover:border-primary/30 hover:bg-primary/5 transition-all duration-300 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <BookOpen className="w-4 h-4 text-violet-400" />
+              How does the algorithm work?
+            </Link>
+
             {/* User Selector */}
             <div className="pt-4 w-full flex flex-col items-center gap-3">
               <UserSelector
@@ -99,7 +112,7 @@ export default function HomePage() {
         {/* Selected User Info */}
         {selectedUser && (
           <div className="animate-in fade-in slide-in-from-top-4 duration-500">
-            <div className="flex items-center gap-4 p-4 rounded-xl bg-card/30 backdrop-blur-sm border border-border/30">
+            <div id="user-info-bar" className="flex items-center gap-4 p-4 rounded-xl bg-card/30 backdrop-blur-sm border border-border/30">
               <span className="text-4xl">{selectedUser.avatar}</span>
               <div>
                 <h2 className="text-lg font-bold text-foreground">
@@ -170,7 +183,7 @@ export default function HomePage() {
         </section>
 
         {/* Similarity Matrix */}
-        <section>
+        <section id="similarity-matrix-section">
           <Separator className="mb-8 opacity-30" />
           <SimilarityMatrix />
         </section>
@@ -194,6 +207,9 @@ export default function HomePage() {
           </a>
         </div>
       </footer>
+
+      {/* Guided Tour */}
+      <GuidedTour hasSelectedUser={!!selectedUserId} />
     </div>
   );
 }

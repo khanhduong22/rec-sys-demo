@@ -47,7 +47,7 @@ export function RecommendationSection({
     <div className="space-y-10">
       {/* Content-Based Recommendations */}
       {contentBased.length > 0 && (
-        <section className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <section id="content-based-section" className="animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="flex items-center gap-3 mb-5">
             <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-purple-500/20 border border-violet-500/20">
               <Sparkles className="w-5 h-5 text-violet-400" />
@@ -84,7 +84,7 @@ export function RecommendationSection({
 
       {/* Frequently Bought Together */}
       {frequentlyBoughtTogether.length > 0 && (
-        <section className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
+        <section id="fbt-section" className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
           <div className="flex items-center gap-3 mb-5">
             <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/20">
               <Users className="w-5 h-5 text-amber-400" />
