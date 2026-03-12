@@ -16,9 +16,11 @@ import {
   Sparkles,
   Target,
   Lightbulb,
-  ChevronRight,
   UserCheck,
   Cpu,
+  ThumbsUp,
+  ThumbsDown,
+  CircleAlert,
 } from "lucide-react";
 import { products } from "@/lib/data/products";
 import { users } from "@/lib/data/users";
@@ -87,7 +89,7 @@ function ItemBasedTab() {
     })
     .sort((a, b) => b.score - a.score);
 
-  const topN = candidates.slice(0, 6);
+
 
   return (
     <div className="space-y-6">
@@ -309,6 +311,40 @@ function ItemBasedTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Advantages & Disadvantages */}
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+            <CircleAlert className="w-4 h-4 text-violet-400" />
+            Advantages & Disadvantages
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-emerald-500/5 rounded-lg p-4 border border-emerald-500/10">
+              <p className="text-xs font-bold text-emerald-400 mb-3 flex items-center gap-1.5">
+                <ThumbsUp className="w-3.5 h-3.5" /> Advantages
+              </p>
+              <ul className="text-xs text-muted-foreground space-y-2">
+                <li>✅ <strong className="text-foreground">No cold-start</strong> — works instantly for new users (only needs product data)</li>
+                <li>✅ <strong className="text-foreground">Transparent</strong> — easy to explain why a product was recommended</li>
+                <li>✅ <strong className="text-foreground">No user data needed</strong> — only product tags/attributes required</li>
+                <li>✅ <strong className="text-foreground">Scales well</strong> — similarity can be precomputed offline</li>
+              </ul>
+            </div>
+            <div className="bg-rose-500/5 rounded-lg p-4 border border-rose-500/10">
+              <p className="text-xs font-bold text-rose-400 mb-3 flex items-center gap-1.5">
+                <ThumbsDown className="w-3.5 h-3.5" /> Disadvantages
+              </p>
+              <ul className="text-xs text-muted-foreground space-y-2">
+                <li>❌ <strong className="text-foreground">Filter bubble</strong> — only recommends similar items, no serendipity</li>
+                <li>❌ <strong className="text-foreground">Tag quality dependent</strong> — garbage tags → garbage recommendations</li>
+                <li>❌ <strong className="text-foreground">Can&apos;t cross categories</strong> — tech buyer won&apos;t get fashion suggestions</li>
+                <li>❌ <strong className="text-foreground">Ignores popularity</strong> — doesn&apos;t know if items are actually good</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -512,6 +548,40 @@ function UserBasedTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Advantages & Disadvantages */}
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+            <CircleAlert className="w-4 h-4 text-emerald-400" />
+            Advantages & Disadvantages
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-emerald-500/5 rounded-lg p-4 border border-emerald-500/10">
+              <p className="text-xs font-bold text-emerald-400 mb-3 flex items-center gap-1.5">
+                <ThumbsUp className="w-3.5 h-3.5" /> Advantages
+              </p>
+              <ul className="text-xs text-muted-foreground space-y-2">
+                <li>✅ <strong className="text-foreground">Cross-category discovery</strong> — can recommend fashion to a tech buyer</li>
+                <li>✅ <strong className="text-foreground">No content analysis</strong> — works without product tags or descriptions</li>
+                <li>✅ <strong className="text-foreground">Serendipity</strong> — surfaces unexpected but relevant items</li>
+                <li>✅ <strong className="text-foreground">Social proof</strong> — recommendations backed by real user behavior</li>
+              </ul>
+            </div>
+            <div className="bg-rose-500/5 rounded-lg p-4 border border-rose-500/10">
+              <p className="text-xs font-bold text-rose-400 mb-3 flex items-center gap-1.5">
+                <ThumbsDown className="w-3.5 h-3.5" /> Disadvantages
+              </p>
+              <ul className="text-xs text-muted-foreground space-y-2">
+                <li>❌ <strong className="text-foreground">Cold-start problem</strong> — new users with no purchases get nothing</li>
+                <li>❌ <strong className="text-foreground">Sparsity</strong> — most users buy very few items → thin similarity signals</li>
+                <li>❌ <strong className="text-foreground">Scalability</strong> — O(n²) user comparisons become expensive at scale</li>
+                <li>❌ <strong className="text-foreground">Popularity bias</strong> — tends to recommend popular mainstream products</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -689,6 +759,40 @@ function FBTTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Advantages & Disadvantages */}
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+            <CircleAlert className="w-4 h-4 text-amber-400" />
+            Advantages & Disadvantages
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-emerald-500/5 rounded-lg p-4 border border-emerald-500/10">
+              <p className="text-xs font-bold text-emerald-400 mb-3 flex items-center gap-1.5">
+                <ThumbsUp className="w-3.5 h-3.5" /> Advantages
+              </p>
+              <ul className="text-xs text-muted-foreground space-y-2">
+                <li>✅ <strong className="text-foreground">Intuitive</strong> — &quot;people who bought X also bought Y&quot; is immediately understandable</li>
+                <li>✅ <strong className="text-foreground">No math needed</strong> — simple counting, no vectors or matrices</li>
+                <li>✅ <strong className="text-foreground">Cross-category bundles</strong> — finds laptop + bag combos without tag overlap</li>
+                <li>✅ <strong className="text-foreground">High conversion</strong> — proven to boost average order value in e-commerce</li>
+              </ul>
+            </div>
+            <div className="bg-rose-500/5 rounded-lg p-4 border border-rose-500/10">
+              <p className="text-xs font-bold text-rose-400 mb-3 flex items-center gap-1.5">
+                <ThumbsDown className="w-3.5 h-3.5" /> Disadvantages
+              </p>
+              <ul className="text-xs text-muted-foreground space-y-2">
+                <li>❌ <strong className="text-foreground">Needs purchase data</strong> — useless for new platforms with no history</li>
+                <li>❌ <strong className="text-foreground">Popularity bias</strong> — bestsellers dominate co-purchase counts</li>
+                <li>❌ <strong className="text-foreground">Not personalized</strong> — same results for everyone who bought item X</li>
+                <li>❌ <strong className="text-foreground">Temporal decay</strong> — old purchase patterns may be outdated</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -801,13 +905,17 @@ function MatrixFactorizationTab() {
         </CardContent>
       </Card>
 
-      {/* Step 2: Latent Factors */}
+      {/* Step 2: Latent Factors with V Matrix Interpretation */}
       <Card className="bg-card/40 backdrop-blur-sm border-border/30">
         <CardContent className="p-6">
           <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
             <Target className="w-4 h-4 text-cyan-400" />
-            Step 2: Latent Factor Profile
+            Step 2: Latent Factor Profile — What do the factors mean?
           </h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            ALS discovers hidden dimensions that <strong className="text-foreground">don&apos;t have names</strong> — but
+            we can interpret them by looking at which products score highest on each factor.
+          </p>
 
           <div className="flex flex-wrap gap-2 mb-5">
             {users.map((user, i) => (
@@ -825,29 +933,55 @@ function MatrixFactorizationTab() {
             ))}
           </div>
 
-          <div className="bg-muted/10 rounded-lg p-4 border border-border/20">
-            <p className="text-xs text-muted-foreground mb-3">
-              <strong className="text-cyan-400">{users[selectedUser].name}</strong>&apos;s hidden preference dimensions:
-            </p>
-            <div className="space-y-2">
-              {U[selectedUser].map((val, f) => {
-                const maxVal = Math.max(...U[selectedUser].map(Math.abs));
-                const width = maxVal > 0 ? (Math.abs(val) / maxVal) * 100 : 0;
-                return (
-                  <div key={`f-${String(f)}`} className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-muted-foreground w-24 shrink-0">
+          {/* U factors (user) + V factors (top products per factor) side by side */}
+          <div className="space-y-3 mb-5">
+            {U[selectedUser].map((val, f) => {
+              const maxVal = Math.max(...U[selectedUser].map(Math.abs));
+              const width = maxVal > 0 ? (Math.abs(val) / maxVal) * 100 : 0;
+              // Find top-3 products for this factor from V
+              const topProducts = products
+                .map((p, j) => ({ product: p, weight: V[j][f] }))
+                .sort((a, b) => b.weight - a.weight)
+                .slice(0, 3);
+              // Infer factor name from top products
+              const topTags = topProducts.flatMap((tp) => tp.product.tags);
+              const tagCounts = new Map<string, number>();
+              for (const t of topTags) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+              const dominantTag = Array.from(tagCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "unknown";
+
+              return (
+                <div key={`f-${String(f)}`} className="bg-muted/10 rounded-lg p-3 border border-border/20">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-xs font-mono text-cyan-400 w-28 shrink-0 font-bold">
                       Factor {f + 1}: {val.toFixed(3)}
                     </span>
-                    <div className="flex-1 h-4 bg-muted/20 rounded-full overflow-hidden">
+                    <div className="flex-1 h-3 bg-muted/20 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all ${val >= 0 ? "bg-cyan-500/50" : "bg-rose-500/50"}`}
                         style={{ width: `${width}%` }}
                       />
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground pl-1">
+                    <span className="text-foreground/60">≈ &quot;{dominantTag}&quot;</span>
+                    <span className="text-muted-foreground/40">|</span>
+                    <span>Top products:</span>
+                    {topProducts.map((tp) => (
+                      <span key={tp.product.id} className="text-foreground/70">
+                        {tp.product.image}{tp.weight.toFixed(2)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="bg-muted/20 rounded-lg p-3 border border-border/30 text-xs text-muted-foreground">
+            <Lightbulb className="w-4 h-4 inline mr-1 text-cyan-400" />
+            <strong className="text-foreground">How to read:</strong> Each factor captures a hidden preference.
+            High user value + high product value on the same factor → strong predicted preference.
+            E.g., if Factor 1 ≈ &quot;premium&quot; and Alex scores 0.886, he&apos;ll get high predictions for premium products.
           </div>
         </CardContent>
       </Card>
@@ -860,7 +994,7 @@ function MatrixFactorizationTab() {
             Step 3: Predictions for {users[selectedUser].name}
           </h3>
           <p className="text-xs text-muted-foreground mb-4">
-            Score = U[{users[selectedUser].name.split(" ")[0]}] · V[product] (dot product of latent vectors).
+            Score = U[{users[selectedUser].name.split(" ")[0]}] · V[product] = Σ (user_factor × product_factor) across all {k} dimensions.
           </p>
 
           <div className="overflow-x-auto rounded-lg border border-border/30 mb-4">
@@ -904,11 +1038,95 @@ function MatrixFactorizationTab() {
               </tbody>
             </table>
           </div>
+        </CardContent>
+      </Card>
 
-          <div className="bg-muted/20 rounded-lg p-3 border border-border/30 text-sm">
-            <Lightbulb className="w-4 h-4 inline mr-1 text-cyan-400" />
-            <strong>Try different users</strong> — latent factors and predictions change.
-            ALS discovers patterns invisible to rule-based methods.
+      {/* MF Variants */}
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+            <Binary className="w-4 h-4 text-cyan-400" />
+            Deep Dive: 3 Variants of Matrix Factorization
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Our demo uses <strong className="text-cyan-400">Observed Only MF</strong> with regularization.
+            Here&apos;s how all 3 variants compare:
+          </p>
+
+          <div className="space-y-3 mb-4">
+            <div className="bg-cyan-500/10 rounded-lg p-4 border border-cyan-500/20">
+              <p className="text-xs font-bold text-cyan-400 mb-2">
+                1. Observed Only MF ← <span className="text-foreground">(Our implementation)</span>
+              </p>
+              <div className="font-mono text-xs text-foreground/80 mb-2 bg-muted/20 rounded px-3 py-2 text-center">
+                min Σ<sub>(i,j) ∈ obs</sub> (R<sub>ij</sub> - U<sub>i</sub>·V<sub>j</sub>)² + λ(‖U‖² + ‖V‖²)
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Only computes error for cells where the user actually interacted (purchased = 1).
+                Empty cells are <strong className="text-foreground">ignored entirely</strong>.
+                Regularization (λ = 0.1) prevents U and V from growing too large.
+              </p>
+            </div>
+
+            <div className="bg-blue-500/10 rounded-lg p-4 border border-blue-500/20">
+              <p className="text-xs font-bold text-blue-400 mb-2">
+                2. Weighted MF <span className="text-muted-foreground">(Netflix, YouTube use this)</span>
+              </p>
+              <div className="font-mono text-xs text-foreground/80 mb-2 bg-muted/20 rounded px-3 py-2 text-center">
+                Σ<sub>obs</sub> (R<sub>ij</sub> - U<sub>i</sub>·V<sub>j</sub>)² + w₀ Σ<sub>unobs</sub> (0 - U<sub>i</sub>·V<sub>j</sub>)²
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Also penalizes unobserved cells, but with a <strong className="text-foreground">small weight w₀</strong>.
+                Logic: &quot;not purchased&quot; ≠ &quot;disliked&quot;, but <em>probably</em> not interested → mild penalty.
+              </p>
+            </div>
+
+            <div className="bg-muted/20 rounded-lg p-4 border border-border/30">
+              <p className="text-xs font-bold text-muted-foreground mb-2">
+                3. SVD <span className="text-rose-400">(Not recommended for recommendations)</span>
+              </p>
+              <div className="font-mono text-xs text-foreground/80 mb-2 bg-muted/20 rounded px-3 py-2 text-center">
+                ‖R - UV<sup>T</sup>‖²<sub>F</sub> = Σ<sub>all (i,j)</sub> (R<sub>ij</sub> - U<sub>i</sub>·V<sub>j</sub>)²
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Minimizes error on <strong className="text-foreground">all cells equally</strong> — observed and unobserved.
+                Since 90%+ of cells are 0, SVD forces UV<sup>T</sup> ≈ 0 everywhere → predictions collapse to near-zero.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Advantages & Disadvantages */}
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+            <CircleAlert className="w-4 h-4 text-cyan-400" />
+            Advantages & Disadvantages
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-emerald-500/5 rounded-lg p-4 border border-emerald-500/10">
+              <p className="text-xs font-bold text-emerald-400 mb-3 flex items-center gap-1.5">
+                <ThumbsUp className="w-3.5 h-3.5" /> Advantages
+              </p>
+              <ul className="text-xs text-muted-foreground space-y-2">
+                <li>✅ <strong className="text-foreground">Hidden pattern discovery</strong> — finds connections invisible to rule-based methods</li>
+                <li>✅ <strong className="text-foreground">Handles sparsity</strong> — works well even when most cells are empty</li>
+                <li>✅ <strong className="text-foreground">Dimensionality reduction</strong> — compresses large matrices into compact factors</li>
+                <li>✅ <strong className="text-foreground">Unified model</strong> — single framework handles users and items together</li>
+              </ul>
+            </div>
+            <div className="bg-rose-500/5 rounded-lg p-4 border border-rose-500/10">
+              <p className="text-xs font-bold text-rose-400 mb-3 flex items-center gap-1.5">
+                <ThumbsDown className="w-3.5 h-3.5" /> Disadvantages
+              </p>
+              <ul className="text-xs text-muted-foreground space-y-2">
+                <li>❌ <strong className="text-foreground">Black box</strong> — hard to explain why a specific product was recommended</li>
+                <li>❌ <strong className="text-foreground">Computationally expensive</strong> — ALS requires many iterations over large matrices</li>
+                <li>❌ <strong className="text-foreground">Cold-start</strong> — new users/products have no latent factors until retrained</li>
+                <li>❌ <strong className="text-foreground">Hyperparameter tuning</strong> — k, λ, iterations all affect quality significantly</li>
+              </ul>
+            </div>
           </div>
         </CardContent>
       </Card>
