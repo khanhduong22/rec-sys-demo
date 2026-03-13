@@ -106,6 +106,16 @@ export default function HomePage() {
       {/* Hero Header */}
       <header className="relative border-b border-border/30 bg-gradient-to-b from-primary/5 via-background to-background">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-violet-500/10 via-transparent to-transparent" />
+        {/* GitHub link — top right */}
+        <a
+          href="https://github.com/khanhduong22/rec-sys-demo"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card/50 border border-border/30 hover:border-primary/30 hover:bg-primary/5 transition-all duration-300 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">GitHub</span>
+        </a>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
           <div className="flex flex-col items-center text-center space-y-4">
             <div className="flex items-center gap-2">
