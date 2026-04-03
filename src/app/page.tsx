@@ -12,6 +12,8 @@ import { SimilarityMatrix } from "@/components/similarity-matrix";
 import { GuidedTour } from "@/components/guided-tour";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { BrowserFingerprint } from "@/components/browser-fingerprint";
 import {
   Brain,
   Cpu,
@@ -20,6 +22,8 @@ import {
   ExternalLink,
   Package,
   BookOpen,
+  Users,
+  Fingerprint,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -32,6 +36,7 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isReranking, setIsReranking] = useState(false);
   const [feedback, setFeedback] = useState<Map<string, "liked" | "disliked">>(new Map());
+  const [activeTab, setActiveTab] = useState("demo-users");
 
   const selectedUser = selectedUserId
     ? users.find((u) => u.id === selectedUserId)
@@ -151,19 +156,42 @@ export default function HomePage() {
               How does the algorithm work?
             </Link>
 
-            {/* User Selector */}
-            <div className="pt-4 w-full flex flex-col items-center gap-3">
-              <UserSelector
-                users={users}
-                selectedUserId={selectedUserId}
-                onSelect={handleUserSelect}
-              />
-              {!selectedUserId && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground animate-bounce">
-                  <ArrowDown className="w-4 h-4" />
-                  Select a user to see personalized recommendations
+            {/* User Selection & Anonymous Identity Tabs */}
+            <div className="pt-8 w-full max-w-4xl mx-auto flex flex-col items-center gap-3">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-col justify-center items-center">
+                <div className="flex justify-center mb-6">
+                  <TabsList className="bg-card/50 border border-border/30 backdrop-blur-sm p-1 rounded-xl">
+                    <TabsTrigger value="demo-users" className="rounded-lg px-4 py-2">
+                      <Users className="w-4 h-4 mr-2" />
+                      Demo Personas
+                    </TabsTrigger>
+                    <TabsTrigger value="anonymous" className="rounded-lg px-4 py-2 data-[active]:bg-violet-500/20 data-[active]:text-violet-400">
+                      <Fingerprint className="w-4 h-4 mr-2" />
+                      Anonymous Identity
+                    </TabsTrigger>
+                  </TabsList>
                 </div>
-              )}
+
+                <TabsContent value="demo-users" className="w-full mt-0 fade-in zoom-in duration-300">
+                  <div className="flex flex-col items-center gap-3">
+                    <UserSelector
+                      users={users}
+                      selectedUserId={selectedUserId}
+                      onSelect={handleUserSelect}
+                    />
+                    {!selectedUserId && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground animate-bounce mt-2">
+                        <ArrowDown className="w-4 h-4" />
+                        Select a user to see personalized recommendations
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="anonymous" className="w-full mt-0 fade-in zoom-in duration-300">
+                  <BrowserFingerprint />
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
         </div>
@@ -171,7 +199,7 @@ export default function HomePage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
         {/* Selected User Info */}
-        {selectedUser && (
+        {activeTab === "demo-users" && selectedUser && (
           <div className="animate-in fade-in slide-in-from-top-4 duration-500">
             <div id="user-info-bar" className="flex items-center gap-4 p-4 rounded-xl bg-card/30 backdrop-blur-sm border border-border/30">
               <span className="text-4xl">{selectedUser.avatar}</span>
@@ -203,7 +231,7 @@ export default function HomePage() {
         )}
 
         {/* Recommendations */}
-        {(selectedUserId || isLoading) && (
+        {activeTab === "demo-users" && (selectedUserId || isLoading) && (
           <RecommendationSection
             contentBased={contentBased}
             frequentlyBoughtTogether={frequentlyBought}

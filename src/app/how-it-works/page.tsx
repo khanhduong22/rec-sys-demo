@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,6 +22,12 @@ import {
   ThumbsUp,
   ThumbsDown,
   CircleAlert,
+  Database,
+  Ruler,
+  MapPin,
+  Fingerprint,
+  Globe,
+  ShieldCheck,
 } from "lucide-react";
 import { products } from "@/lib/data/products";
 import { users } from "@/lib/data/users";
@@ -29,6 +36,7 @@ import {
   createInteractionMatrix,
   alsFactorize,
 } from "@/lib/recommendation/engine";
+import { FingerprintDemo } from "@/components/fingerprint-demo";
 
 // ============================================================
 // HELPERS
@@ -1135,10 +1143,713 @@ function MatrixFactorizationTab() {
 }
 
 // ============================================================
+// TAB 5: VECTOR DATABASE OPERATORS
+// ============================================================
+
+const OPERATOR_EXAMPLES = [
+  {
+    id: "cosine",
+    name: "Cosine Similarity",
+    icon: "↗️",
+    color: "rose",
+    symbol: "<=>",
+    pgvector: "1 - (embedding <=> query)",
+    formula: "cos(A, B) = (A · B) / (‖A‖ × ‖B‖)",
+    range: "0 → 1 (1 = identical direction)",
+    description:
+      "Measures the angle between two vectors, ignoring magnitude. Two vectors pointing the same direction have similarity 1, regardless of how long they are.",
+    whenToUse:
+      "Best for text embeddings (e.g., OpenAI, Gemini) where you care about semantic meaning, not vector length. Most common choice for NLP tasks.",
+    sql: `-- Find top 5 similar products by semantic meaning
+SELECT name, 1 - (embedding <=> query_embedding) AS similarity
+FROM products
+ORDER BY embedding <=> query_embedding
+LIMIT 5;`,
+  },
+  {
+    id: "euclidean",
+    name: "Euclidean Distance (L2)",
+    icon: "📏",
+    color: "blue",
+    symbol: "<->",
+    pgvector: "embedding <-> query",
+    formula: "d(A, B) = √(Σ (Aᵢ - Bᵢ)²)",
+    range: "0 → ∞ (0 = identical point)",
+    description:
+      "Straight-line distance between two points in space. Sensitive to magnitude — considers both direction AND scale of the vectors.",
+    whenToUse:
+      "Best for image embeddings, geographic data, or when magnitude carries meaning (e.g., user activity intensity).",
+    sql: `-- Find nearest neighbors by L2 distance
+SELECT name, embedding <-> query_embedding AS distance
+FROM products
+ORDER BY embedding <-> query_embedding
+LIMIT 5;`,
+  },
+  {
+    id: "dotproduct",
+    name: "Inner Product (Dot Product)",
+    icon: "⚡",
+    color: "amber",
+    symbol: "<#>",
+    pgvector: "(embedding <#> query) * -1",
+    formula: "A · B = Σ (Aᵢ × Bᵢ)",
+    range: "-∞ → +∞ (higher = more similar)",
+    description:
+      "Combines both angle and magnitude. If vectors are normalized (length = 1), dot product equals cosine similarity. Magnitude matters: a popular item with long vector gets boosted.",
+    whenToUse:
+      "Best when you want popularity/magnitude to influence ranking. Used in Maximum Inner Product Search (MIPS) for retrieval+ranking in one step.",
+    sql: `-- pgvector uses NEGATIVE inner product (for ORDER BY ASC)
+SELECT name, (embedding <#> query_embedding) * -1 AS score
+FROM products
+ORDER BY embedding <#> query_embedding
+LIMIT 5;`,
+  },
+  {
+    id: "manhattan",
+    name: "Manhattan Distance (L1)",
+    icon: "🏙️",
+    color: "emerald",
+    symbol: "custom",
+    pgvector: "SUM(ABS(a - b))",
+    formula: "d(A, B) = Σ |Aᵢ - Bᵢ|",
+    range: "0 → ∞ (0 = identical)",
+    description:
+      "Also called \"taxicab distance\" — the sum of absolute differences along each axis. Like walking city blocks instead of flying straight. More robust to outliers than L2.",
+    whenToUse:
+      "Best for sparse, high-dimensional data or when outlier resilience matters. Common in NLP bag-of-words and recommendation feature vectors.",
+    sql: `-- Manhattan via pgvector custom function
+-- (Not a built-in operator, use SQL expression)
+SELECT name,
+  (SELECT SUM(ABS(a.val - b.val))
+   FROM unnest(embedding) WITH ORDINALITY a(val, idx)
+   JOIN unnest(query_embedding) WITH ORDINALITY b(val, idx)
+     USING (idx)) AS l1_distance
+FROM products
+ORDER BY l1_distance
+LIMIT 5;`,
+  },
+];
+
+const HNSW_LAYERS = [
+  { level: 3, nodes: 2, label: "Express highway", desc: "Very few nodes, long-range connections" },
+  { level: 2, nodes: 5, label: "Regional roads", desc: "More nodes, medium-range links" },
+  { level: 1, nodes: 10, label: "Local streets", desc: "Many nodes, short-range connections" },
+  { level: 0, nodes: 20, label: "All data points", desc: "Every vector, fine-grained neighbors" },
+];
+
+function VectorOpsTab() {
+  const [selectedA, setSelectedA] = useState("e1");
+  const [selectedB, setSelectedB] = useState("e7");
+  const [activeOperator, setActiveOperator] = useState("cosine");
+
+  const productA = products.find((p) => p.id === selectedA)!;
+  const productB = products.find((p) => p.id === selectedB)!;
+
+  // Build vectors from tags (same approach as Item-Based tab)
+  const allTags = [...new Set(products.flatMap((p) => p.tags))].sort((a, b) => a.localeCompare(b));
+  const vectorA: number[] = allTags.map((tag) => (productA.tags.includes(tag) ? 1 : 0));
+  const vectorB: number[] = allTags.map((tag) => (productB.tags.includes(tag) ? 1 : 0));
+
+  // Calculate all metrics
+  const dotProd = vectorA.reduce((sum, val, i) => sum + val * vectorB[i], 0);
+  const magA = Math.sqrt(vectorA.reduce((sum, val) => sum + val * val, 0));
+  const magB = Math.sqrt(vectorB.reduce((sum, val) => sum + val * val, 0));
+  const cosine = magA && magB ? dotProd / (magA * magB) : 0;
+  const euclidean = Math.sqrt(vectorA.reduce((sum, val, i) => sum + (val - vectorB[i]) ** 2, 0));
+  const manhattan = vectorA.reduce((sum, val, i) => sum + Math.abs(val - vectorB[i]), 0);
+
+  const metrics = [
+    { id: "cosine", label: "Cosine Sim", value: cosine, formatted: (cosine * 100).toFixed(1) + "%", higher: true },
+    { id: "euclidean", label: "L2 Distance", value: euclidean, formatted: euclidean.toFixed(3), higher: false },
+    { id: "dotproduct", label: "Dot Product", value: dotProd, formatted: String(dotProd), higher: true },
+    { id: "manhattan", label: "L1 Distance", value: manhattan, formatted: String(manhattan), higher: false },
+  ];
+
+  const activeOp = OPERATOR_EXAMPLES.find((op) => op.id === activeOperator)!;
+
+  const colorMap: Record<string, { text: string; bg: string; border: string; bgLight: string }> = {
+    rose: { text: "text-rose-400", bg: "bg-rose-500/20", border: "border-rose-500/20", bgLight: "bg-rose-500/5" },
+    blue: { text: "text-blue-400", bg: "bg-blue-500/20", border: "border-blue-500/20", bgLight: "bg-blue-500/5" },
+    amber: { text: "text-amber-400", bg: "bg-amber-500/20", border: "border-amber-500/20", bgLight: "bg-amber-500/5" },
+    emerald: { text: "text-emerald-400", bg: "bg-emerald-500/20", border: "border-emerald-500/20", bgLight: "bg-emerald-500/5" },
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Intro: What is a Vector Database? */}
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+            <Database className="w-4 h-4 text-rose-400" />
+            What is a Vector Database?
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            A vector database stores data as <strong className="text-foreground">high-dimensional numerical vectors</strong> (arrays of floats)
+            instead of rows and columns. When you search, it finds the <strong className="text-foreground">nearest vectors</strong> using
+            distance/similarity operators — this is how AI-powered &quot;find similar&quot; features work.
+          </p>
+          <div className="bg-gradient-to-r from-rose-500/10 to-pink-500/10 rounded-xl p-5 border border-rose-500/20">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center text-xs">
+              <div>
+                <div className="text-2xl mb-1">📝</div>
+                <p className="font-bold text-foreground mb-1">Text / Product</p>
+                <p className="text-muted-foreground">&quot;Premium wireless headphones with noise cancellation&quot;</p>
+              </div>
+              <div className="flex items-center justify-center">
+                <div className="text-xl text-rose-400">→ AI Embedding →</div>
+              </div>
+              <div>
+                <div className="text-2xl mb-1">🔢</div>
+                <p className="font-bold text-foreground mb-1">Vector</p>
+                <p className="font-mono text-muted-foreground text-[10px]">[0.12, -0.45, 0.78, 0.23, ...]</p>
+                <p className="text-muted-foreground mt-1">768 or 1536 dimensions</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Interactive Operator Comparison */}
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+            <Ruler className="w-4 h-4 text-rose-400" />
+            Interactive Comparison: All Operators at a Glance
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Select two products to see how each distance/similarity operator compares their tag vectors.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <div>
+              <label htmlFor="vec-a" className="text-xs text-muted-foreground mb-1 block">Product A</label>
+              <select
+                id="vec-a"
+                value={selectedA}
+                onChange={(e) => setSelectedA(e.target.value)}
+                className="w-full bg-muted/30 border border-border/50 rounded-lg py-2 px-3 text-sm text-foreground"
+              >
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>{p.image} {p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="vec-b" className="text-xs text-muted-foreground mb-1 block">Product B</label>
+              <select
+                id="vec-b"
+                value={selectedB}
+                onChange={(e) => setSelectedB(e.target.value)}
+                className="w-full bg-muted/30 border border-border/50 rounded-lg py-2 px-3 text-sm text-foreground"
+              >
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>{p.image} {p.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Metrics grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            {metrics.map((m) => {
+              const op = OPERATOR_EXAMPLES.find((o) => o.id === m.id)!;
+              const colors = colorMap[op.color];
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setActiveOperator(m.id)}
+                  className={`rounded-lg p-3 border text-center transition-all ${
+                    activeOperator === m.id
+                      ? `${colors.bg} ${colors.border} ring-1 ring-offset-1 ring-offset-background ${colors.border}`
+                      : "bg-card/50 border-border/20 hover:bg-muted/30"
+                  }`}
+                >
+                  <p className="text-[10px] text-muted-foreground mb-1">{op.icon} {m.label}</p>
+                  <p className={`text-lg font-bold font-mono ${colors.text}`}>{m.formatted}</p>
+                  <p className="text-[9px] text-muted-foreground mt-1">
+                    {m.higher ? "↑ higher = more similar" : "↓ lower = more similar"}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Visual: vector components side-by-side (condensed) */}
+          <div className="overflow-x-auto rounded-lg border border-border/30">
+            <table className="w-full text-[10px]">
+              <thead>
+                <tr className="bg-muted/30">
+                  <th className="p-1.5 text-left font-medium sticky left-0 bg-muted/30 z-10">Dimension</th>
+                  <th className="p-1.5 text-center text-blue-400">{productA.image} A</th>
+                  <th className="p-1.5 text-center text-pink-400">{productB.image} B</th>
+                  <th className="p-1.5 text-center text-green-400">A×B</th>
+                  <th className="p-1.5 text-center text-amber-400">(A-B)²</th>
+                  <th className="p-1.5 text-center text-emerald-400">|A-B|</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allTags.slice(0, 12).map((tag, i) => (
+                  <tr key={tag} className={`border-t border-border/10 ${vectorA[i] === 1 && vectorB[i] === 1 ? "bg-green-500/10" : ""}`}>
+                    <td className="p-1.5 font-mono sticky left-0 bg-card/40 z-10">{tag}</td>
+                    <td className={`p-1.5 text-center font-mono font-bold ${vectorA[i] === 1 ? "text-blue-400" : "text-muted-foreground/30"}`}>{vectorA[i]}</td>
+                    <td className={`p-1.5 text-center font-mono font-bold ${vectorB[i] === 1 ? "text-pink-400" : "text-muted-foreground/30"}`}>{vectorB[i]}</td>
+                    <td className={`p-1.5 text-center font-mono font-bold ${vectorA[i] * vectorB[i] === 1 ? "text-green-400" : "text-muted-foreground/30"}`}>{vectorA[i] * vectorB[i]}</td>
+                    <td className={`p-1.5 text-center font-mono font-bold ${(vectorA[i] - vectorB[i]) ** 2 > 0 ? "text-amber-400" : "text-muted-foreground/30"}`}>{(vectorA[i] - vectorB[i]) ** 2}</td>
+                    <td className={`p-1.5 text-center font-mono font-bold ${Math.abs(vectorA[i] - vectorB[i]) > 0 ? "text-emerald-400" : "text-muted-foreground/30"}`}>{Math.abs(vectorA[i] - vectorB[i])}</td>
+                  </tr>
+                ))}
+                {allTags.length > 12 && (
+                  <tr className="border-t border-border/10">
+                    <td colSpan={6} className="p-1.5 text-center text-muted-foreground italic">
+                      ...and {allTags.length - 12} more dimensions
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Operator Deep Dive */}
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-rose-400" />
+            Operator Deep Dive — Click to Explore
+          </h3>
+
+          {/* Operator selector pills */}
+          <div className="flex flex-wrap gap-2 mb-5">
+            {OPERATOR_EXAMPLES.map((op) => {
+              const colors = colorMap[op.color];
+              return (
+                <button
+                  key={op.id}
+                  onClick={() => setActiveOperator(op.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    activeOperator === op.id
+                      ? `${colors.bg} ${colors.text} border ${colors.border}`
+                      : "bg-muted/20 text-muted-foreground border border-border/30 hover:bg-muted/40"
+                  }`}
+                >
+                  {op.icon} {op.name}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active operator detail */}
+          {(() => {
+            const colors = colorMap[activeOp.color];
+            return (
+              <div className="space-y-4">
+                {/* Formula */}
+                <div className={`bg-gradient-to-r ${colors.bgLight} rounded-xl p-5 border ${colors.border} text-center`}>
+                  <div className={`text-lg font-mono font-bold ${colors.text}`}>
+                    {activeOp.formula}
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    pgvector operator: <code className={`font-mono font-bold ${colors.text}`}>{activeOp.symbol}</code>{" "}
+                    <span className="mx-2">|</span>{" "}
+                    Range: <strong className="text-foreground">{activeOp.range}</strong>
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className={`${colors.bgLight} rounded-lg p-4 border ${colors.border}`}>
+                    <p className={`text-xs font-bold ${colors.text} mb-2`}>📖 How it works</p>
+                    <p className="text-xs text-muted-foreground">{activeOp.description}</p>
+                  </div>
+                  <div className={`${colors.bgLight} rounded-lg p-4 border ${colors.border}`}>
+                    <p className={`text-xs font-bold ${colors.text} mb-2`}>✅ When to use</p>
+                    <p className="text-xs text-muted-foreground">{activeOp.whenToUse}</p>
+                  </div>
+                </div>
+
+                {/* SQL Example */}
+                <div className="bg-muted/20 rounded-lg border border-border/30 overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-muted/30 border-b border-border/30">
+                    <Database className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-[10px] font-medium text-muted-foreground">pgvector SQL</span>
+                    <Badge variant="outline" className={`text-[9px] ml-auto ${colors.text} ${colors.border}`}>
+                      {activeOp.symbol}
+                    </Badge>
+                  </div>
+                  <pre className="p-4 text-[11px] font-mono text-foreground/80 overflow-x-auto leading-relaxed">
+                    <code>{activeOp.sql}</code>
+                  </pre>
+                </div>
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
+      {/* HNSW Index Explainer */}
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+            <GitCompare className="w-4 h-4 text-rose-400" />
+            HNSW Index — How Vector Search Stays Fast
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Without an index, vector search computes distance to <strong className="text-foreground">every single row</strong> (brute force, O(n)).{" "}
+            <strong className="text-foreground">HNSW</strong> (Hierarchical Navigable Small World) builds a multi-layer graph
+            to find approximate nearest neighbors in <strong className="text-foreground">O(log n)</strong> time.
+          </p>
+
+          {/* Visual layers */}
+          <div className="space-y-2 mb-5">
+            {HNSW_LAYERS.map((layer) => {
+              const width = ((layer.nodes / 20) * 100);
+              return (
+                <div key={layer.level} className="flex items-center gap-3">
+                  <span className="text-xs font-mono text-rose-400 w-16 shrink-0 font-bold">L{layer.level}</span>
+                  <div className="flex-1 relative">
+                    <div className="h-8 bg-muted/10 rounded-lg border border-border/20 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-rose-500/30 to-pink-500/20 rounded-lg flex items-center px-3 transition-all"
+                        style={{ width: `${width}%` }}
+                      >
+                        <div className="flex gap-1.5">
+                          {Array.from({ length: Math.min(layer.nodes, 12) }).map((_, j) => (
+                            <div
+                              key={`n-${layer.level}-${String(j)}`}
+                              className="w-2 h-2 rounded-full bg-rose-400/70"
+                            />
+                          ))}
+                          {layer.nodes > 12 && <span className="text-[9px] text-rose-300">+{layer.nodes - 12}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="w-36 shrink-0">
+                    <p className="text-[10px] font-medium text-foreground">{layer.label}</p>
+                    <p className="text-[9px] text-muted-foreground">{layer.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* HNSW search steps */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <div className="bg-rose-500/5 rounded-lg p-3 border border-rose-500/10 text-center">
+              <div className="text-xl mb-1">🔍</div>
+              <p className="text-[10px] font-bold text-rose-400 mb-1">1. Enter at Top Layer</p>
+              <p className="text-[10px] text-muted-foreground">Start at L3 with few nodes, jump to nearest neighbor quickly</p>
+            </div>
+            <div className="bg-rose-500/5 rounded-lg p-3 border border-rose-500/10 text-center">
+              <div className="text-xl mb-1">⬇️</div>
+              <p className="text-[10px] font-bold text-rose-400 mb-1">2. Descend Layers</p>
+              <p className="text-[10px] text-muted-foreground">Move down to denser layers, refining the neighborhood at each level</p>
+            </div>
+            <div className="bg-rose-500/5 rounded-lg p-3 border border-rose-500/10 text-center">
+              <div className="text-xl mb-1">🎯</div>
+              <p className="text-[10px] font-bold text-rose-400 mb-1">3. Find at L0</p>
+              <p className="text-[10px] text-muted-foreground">At the bottom layer, explore fine-grained connections → return top-K results</p>
+            </div>
+          </div>
+
+          {/* HNSW SQL */}
+          <div className="bg-muted/20 rounded-lg border border-border/30 overflow-hidden mb-4">
+            <div className="flex items-center gap-2 px-4 py-2 bg-muted/30 border-b border-border/30">
+              <Database className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-[10px] font-medium text-muted-foreground">Create HNSW Index in pgvector</span>
+            </div>
+            <pre className="p-4 text-[11px] font-mono text-foreground/80 overflow-x-auto leading-relaxed">
+              <code>{`-- Create an HNSW index on the embedding column
+CREATE INDEX ON products
+USING hnsw (embedding vector_cosine_ops)
+WITH (m = 16, ef_construction = 64);
+
+-- m = max connections per node (higher = better recall, more memory)
+-- ef_construction = search width during build (higher = better index, slower build)
+
+-- At query time, set ef_search for recall vs speed tradeoff:
+SET hnsw.ef_search = 100;  -- default 40, increase for better recall`}</code>
+            </pre>
+          </div>
+
+          {/* Performance comparison */}
+          <div className="overflow-x-auto rounded-lg border border-border/30 mb-4">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/30">
+                  <th className="p-2 text-left">Method</th>
+                  <th className="p-2 text-center">Speed</th>
+                  <th className="p-2 text-center">Accuracy</th>
+                  <th className="p-2 text-center">Memory</th>
+                  <th className="p-2 text-center">Best For</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t border-border/10">
+                  <td className="p-2 font-medium">Brute Force (seq scan)</td>
+                  <td className="p-2 text-center text-rose-400">🐌 O(n)</td>
+                  <td className="p-2 text-center text-emerald-400">100%</td>
+                  <td className="p-2 text-center text-emerald-400">Low</td>
+                  <td className="p-2 text-muted-foreground">&lt; 10K vectors</td>
+                </tr>
+                <tr className="border-t border-border/10 bg-rose-500/5">
+                  <td className="p-2 font-medium text-rose-400">HNSW</td>
+                  <td className="p-2 text-center text-emerald-400">⚡ O(log n)</td>
+                  <td className="p-2 text-center text-amber-400">~95-99%</td>
+                  <td className="p-2 text-center text-amber-400">High</td>
+                  <td className="p-2 text-muted-foreground">10K–10M vectors</td>
+                </tr>
+                <tr className="border-t border-border/10">
+                  <td className="p-2 font-medium">IVFFlat</td>
+                  <td className="p-2 text-center text-amber-400">🏃 O(n/k)</td>
+                  <td className="p-2 text-center text-amber-400">~90-95%</td>
+                  <td className="p-2 text-center text-emerald-400">Low</td>
+                  <td className="p-2 text-muted-foreground">1M+ vectors, memory-constrained</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="bg-muted/20 rounded-lg p-3 border border-border/30 text-sm">
+            <Lightbulb className="w-4 h-4 inline mr-1 text-rose-400" />
+            <strong>Key insight:</strong> HNSW trades a bit of accuracy for massive speed gains.
+            At 1M vectors, brute force takes ~500ms but HNSW returns results in ~2ms — that&apos;s a <strong className="text-rose-400">250× speedup</strong>.
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Operator Comparison Summary */}
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+            <CircleAlert className="w-4 h-4 text-rose-400" />
+            Which Operator Should You Use?
+          </h3>
+          <div className="overflow-x-auto rounded-lg border border-border/30">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/30">
+                  <th className="p-2 text-left">Operator</th>
+                  <th className="p-2 text-center">pgvector</th>
+                  <th className="p-2 text-left">Best Scenario</th>
+                  <th className="p-2 text-center">Normalized?</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t border-border/10 bg-rose-500/5">
+                  <td className="p-2 font-medium text-rose-400">Cosine</td>
+                  <td className="p-2 text-center font-mono text-rose-400">&lt;=&gt;</td>
+                  <td className="p-2 text-muted-foreground">Text embeddings, semantic search</td>
+                  <td className="p-2 text-center">Not required</td>
+                </tr>
+                <tr className="border-t border-border/10 bg-blue-500/5">
+                  <td className="p-2 font-medium text-blue-400">Euclidean (L2)</td>
+                  <td className="p-2 text-center font-mono text-blue-400">&lt;-&gt;</td>
+                  <td className="p-2 text-muted-foreground">Image embeddings, spatial data</td>
+                  <td className="p-2 text-center">Recommended</td>
+                </tr>
+                <tr className="border-t border-border/10 bg-amber-500/5">
+                  <td className="p-2 font-medium text-amber-400">Inner Product</td>
+                  <td className="p-2 text-center font-mono text-amber-400">&lt;#&gt;</td>
+                  <td className="p-2 text-muted-foreground">Retrieval + ranking (MIPS)</td>
+                  <td className="p-2 text-center">No (magnitude = score)</td>
+                </tr>
+                <tr className="border-t border-border/10 bg-emerald-500/5">
+                  <td className="p-2 font-medium text-emerald-400">Manhattan (L1)</td>
+                  <td className="p-2 text-center font-mono text-emerald-400">custom</td>
+                  <td className="p-2 text-muted-foreground">Sparse/high-dim, outlier-robust</td>
+                  <td className="p-2 text-center">Optional</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-4 bg-muted/20 rounded-lg p-3 border border-border/30 text-sm">
+            <Lightbulb className="w-4 h-4 inline mr-1 text-rose-400" />
+            <strong>Rule of thumb:</strong> start with <strong className="text-rose-400">Cosine Similarity</strong> for text/NLP tasks.
+            If your embeddings are already normalized (most modern models do this), Cosine ≡ Dot Product — so use{" "}
+            <strong className="text-amber-400">Inner Product</strong> for a slight speed boost.
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ============================================================
+// TAB 6: ANONYMOUS IDENTITY (FINGERPRINTING)
+// ============================================================
+
+function AnonymousIdentityTab() {
+  return (
+    <div className="space-y-6">
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+            <Globe className="w-4 h-4 text-violet-400" />
+            Live Demo: ThumbmarkJS vs FingerprintJS
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Below is a real-time extraction of your browser&apos;s entropy (hardware specs, canvas rendering, user agent, etc.) processed by two leading open-source fingerprinting libraries.
+          </p>
+          
+          <FingerprintDemo />
+
+        </CardContent>
+      </Card>
+
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+            <Binary className="w-4 h-4 text-indigo-400" />
+            How this interacts with Recommendation Systems
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Instead of demanding an immediate login, modern platforms (like TikTok or eCommerce sites) build a shadow profile using device fingerprints. Here is how it flows:
+          </p>
+          
+          <div className="space-y-4">
+            <div className="bg-muted/20 border border-border/30 rounded-lg p-4 relative overflow-hidden group">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500/50 rounded-l-lg group-hover:w-2 transition-all" />
+              <h4 className="text-xs font-bold text-foreground mb-1 ml-3">1. First Touch (Anonymous Session)</h4>
+              <p className="text-xs text-muted-foreground ml-3">
+                A user visits the site. We generate a Fingerprint ID (e.g., <code className="bg-black/30 px-1 rounded">fa92b...</code>). A temporary user profile is created in the database tied to this ID rather than an email address.
+              </p>
+            </div>
+
+            <div className="bg-muted/20 border border-border/30 rounded-lg p-4 relative overflow-hidden group">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-violet-500/50 rounded-l-lg group-hover:w-2 transition-all" />
+              <h4 className="text-xs font-bold text-foreground mb-1 ml-3">2. Cold-Start Mitigation & Interaction Tracking</h4>
+              <p className="text-xs text-muted-foreground ml-3">
+                As the user clicks products or adds them to a cart, we associate these events with the Fingerprint ID.
+                The <strong>Item-Based API</strong> immediately provides related recommendations, updating the feed dynamically without knowing their real identity.
+              </p>
+            </div>
+
+            <div className="bg-muted/20 border border-border/30 rounded-lg p-4 relative overflow-hidden group">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500/50 rounded-l-lg group-hover:w-2 transition-all" />
+              <h4 className="text-xs font-bold text-foreground mb-1 ml-3">3. External Data Enrichment (Bought Data)</h4>
+              <p className="text-xs text-muted-foreground ml-3">
+                If we have no initial interaction data, we can purchase Audience Data from Data Brokers. Data Brokers often map device fingerprints to demographic segments (e.g., &apos;Tech Enthusiast&apos;, &apos;Male 20-30&apos;). When a fingerprint matches purchased data, we can instantly serve hyper-targeted recommendations on their very first page load!
+              </p>
+            </div>
+
+            <div className="bg-muted/20 border border-border/30 rounded-lg p-4 relative overflow-hidden group">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500/50 rounded-l-lg group-hover:w-2 transition-all" />
+              <h4 className="text-xs font-bold text-foreground mb-1 ml-3">4. Profile Merging (The Login Event)</h4>
+              <p className="text-xs text-muted-foreground ml-3">
+                When the user finally creates an account or logs in, we <strong>merge</strong> the anonymous Fingerprint history with their authenticated Profile.
+                They get to keep the highly personalized Discover feed they built during their completely anonymous browsing session.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+            <GitCompare className="w-4 h-4 text-orange-400" />
+            Library Comparison: ThumbmarkJS vs FingerprintJS
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-muted-foreground">
+            {/* ThumbmarkJS */}
+            <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-lg p-4">
+              <h4 className="text-sm font-bold text-indigo-400 mb-3 flex items-center gap-2">
+                <Fingerprint className="w-4 h-4" />
+                ThumbmarkJS
+              </h4>
+              <ul className="space-y-2">
+                <li>• <strong>Execution:</strong> 100% Client-side.</li>
+                <li>• <strong>Customization:</strong> High. You can choose exactly which entropy modules to run (audio, canvas, webgl).</li>
+                <li>• <strong>Accuracy:</strong> Moderate. Great for stopping basic bot abuse, but susceptible to collisions on identical corporate devices.</li>
+                <li>• <strong>Pricing:</strong> 100% Free & Open Source (MIT).</li>
+              </ul>
+            </div>
+
+            {/* FingerprintJS Free */}
+            <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-lg p-4">
+              <h4 className="text-sm font-bold text-cyan-400 mb-3 flex items-center gap-2">
+                <Database className="w-4 h-4" />
+                FingerprintJS (Free)
+              </h4>
+              <ul className="space-y-2">
+                <li>• <strong>Execution:</strong> 100% Client-side.</li>
+                <li>• <strong>Accuracy:</strong> Around 40-60%. Hashes will change if the user upgrades their OS or Browser version.</li>
+                <li>• <strong>Vulnerability:</strong> Easily blocked by AdBlockers, Brave shield, and Safari Intelligent Tracking Prevention (ITP).</li>
+                <li>• <strong>Pricing:</strong> Free (BSL / Open Source).</li>
+              </ul>
+            </div>
+
+            {/* FingerprintJS Pro */}
+            <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+              <h4 className="text-sm font-bold text-orange-400 mb-3 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4" />
+                FingerprintJS (Pro SaaS)
+              </h4>
+              <ul className="space-y-2">
+                <li>• <strong>Execution:</strong> Server-side API. The script sends raw entropy to Fingerprint servers for analysis.</li>
+                <li>• <strong>Accuracy:</strong> 99.5%. Uses machine learning, fuzzy matching, and probability to deduplicate users securely.</li>
+                <li>• <strong>Unstoppable:</strong> Penetrates AdBlockers via Custom Subdomain CNAME routing (acts as a first-party request).</li>
+                <li>• <strong>Stability:</strong> The hash stays the same even if the user updates iOS or clears cookies.</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-card/40 backdrop-blur-sm border-border/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+            <CircleAlert className="w-4 h-4 text-violet-400" />
+            Advantages & Disadvantages of Anonymous Tracking
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-emerald-500/5 rounded-lg p-4 border border-emerald-500/10">
+              <p className="text-xs font-bold text-emerald-400 mb-3 flex items-center gap-1.5">
+                <ThumbsUp className="w-3.5 h-3.5" /> Advantages
+              </p>
+              <ul className="text-xs text-muted-foreground space-y-2">
+                <li>✅ <strong className="text-foreground">Frictionless</strong> — Instant personalized experience on first visit.</li>
+                <li>✅ <strong className="text-foreground">Stable</strong> — Persists across browser restarts, incognito windows, and OS updates.</li>
+                <li>✅ <strong className="text-foreground">Seamless tracking</strong> — Understand the user journey prior to sign-up.</li>
+              </ul>
+            </div>
+            <div className="bg-rose-500/5 rounded-lg p-4 border border-rose-500/10">
+              <p className="text-xs font-bold text-rose-400 mb-3 flex items-center gap-1.5">
+                <ThumbsDown className="w-3.5 h-3.5" /> Disadvantages
+              </p>
+              <ul className="text-xs text-muted-foreground space-y-2">
+                <li>❌ <strong className="text-foreground">Privacy Concerns</strong> — Often blocked by AdBlockers and strict browser settings.</li>
+                <li>❌ <strong className="text-foreground">Collisions</strong> — Users on identical corporate laptops/networks might generate the exact same fingerprint.</li>
+                <li>❌ <strong className="text-foreground">Changeable</strong> — Updating browsers or swapping hardware might alter the hash completely.</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ============================================================
 // MAIN PAGE
 // ============================================================
 
-export default function HowItWorksPage() {
+export function HowItWorksContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  
+  const currentTab = searchParams.get("tab") || "item-based";
+  
+  const handleTabChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", value);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -1156,7 +1867,7 @@ export default function HowItWorksPage() {
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold">How the Algorithms Work</h1>
               <p className="text-muted-foreground mt-1">
-                4 recommendation algorithms explained step-by-step with live interactive demos
+                4 recommendation algorithms + vector database deep dive — explained step-by-step with live interactive demos
               </p>
             </div>
           </div>
@@ -1178,6 +1889,7 @@ export default function HowItWorksPage() {
                       <th className="p-3 text-left text-emerald-400">User-Based</th>
                       <th className="p-3 text-left text-amber-400">FBT</th>
                       <th className="p-3 text-left text-cyan-400">Matrix Factorization</th>
+                      <th className="p-3 text-left text-rose-400">Vector DB Ops</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1187,6 +1899,7 @@ export default function HowItWorksPage() {
                       <td className="p-3">User purchase vectors</td>
                       <td className="p-3">Co-purchase counts</td>
                       <td className="p-3">User×Product matrix</td>
+                      <td className="p-3">Embedding vectors</td>
                     </tr>
                     <tr className="border-t border-border/20">
                       <td className="p-3 font-medium">Method</td>
@@ -1194,6 +1907,7 @@ export default function HowItWorksPage() {
                       <td className="p-3">Cosine on user vectors</td>
                       <td className="p-3">Co-occurrence</td>
                       <td className="p-3">ALS latent factors</td>
+                      <td className="p-3">Distance / similarity operators</td>
                     </tr>
                     <tr className="border-t border-border/20">
                       <td className="p-3 font-medium">Strength</td>
@@ -1201,6 +1915,7 @@ export default function HowItWorksPage() {
                       <td className="p-3">Cross-category discovery</td>
                       <td className="p-3">Simple, intuitive</td>
                       <td className="p-3">Hidden pattern detection</td>
+                      <td className="p-3">Semantic search at scale</td>
                     </tr>
                     <tr className="border-t border-border/20">
                       <td className="p-3 font-medium">Weakness</td>
@@ -1208,6 +1923,7 @@ export default function HowItWorksPage() {
                       <td className="p-3">Cold-start problem</td>
                       <td className="p-3">Needs purchase data</td>
                       <td className="p-3">Computationally expensive</td>
+                      <td className="p-3">Requires AI embedding model</td>
                     </tr>
                     <tr className="border-t border-border/20">
                       <td className="p-3 font-medium">Badge</td>
@@ -1235,6 +1951,12 @@ export default function HowItWorksPage() {
                           AI-discovered
                         </Badge>
                       </td>
+                      <td className="p-3">
+                        <Badge className="bg-rose-500/10 text-rose-400 border-rose-500/20 text-xs">
+                          <Database className="w-3 h-3 mr-1" />
+                          Similar vibe
+                        </Badge>
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -1244,35 +1966,49 @@ export default function HowItWorksPage() {
         </section>
 
         {/* Tabbed Algorithm Deep Dives */}
-        <Tabs defaultValue="item-based" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-auto bg-muted/30 p-1 rounded-xl">
+        <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="flex flex-wrap w-full justify-start h-auto bg-muted/30 p-1.5 rounded-xl gap-1.5">
             <TabsTrigger
               value="item-based"
-              className="text-xs sm:text-sm py-2.5 data-[state=active]:bg-violet-500/20 data-[state=active]:text-violet-400 data-[state=active]:shadow-sm rounded-lg"
+              className="flex-1 min-w-[120px] text-xs sm:text-sm py-2.5 data-[state=active]:bg-violet-500/20 data-[state=active]:text-violet-400 data-[state=active]:shadow-sm rounded-lg"
             >
               <Sparkles className="w-4 h-4 mr-1.5 hidden sm:inline" />
               Item-Based
             </TabsTrigger>
             <TabsTrigger
               value="user-based"
-              className="text-xs sm:text-sm py-2.5 data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg"
+              className="flex-1 min-w-[120px] text-xs sm:text-sm py-2.5 data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg"
             >
               <UserCheck className="w-4 h-4 mr-1.5 hidden sm:inline" />
               User-Based
             </TabsTrigger>
             <TabsTrigger
               value="fbt"
-              className="text-xs sm:text-sm py-2.5 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400 data-[state=active]:shadow-sm rounded-lg"
+              className="flex-1 min-w-[80px] text-xs sm:text-sm py-2.5 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400 data-[state=active]:shadow-sm rounded-lg"
             >
               <ShoppingBag className="w-4 h-4 mr-1.5 hidden sm:inline" />
               FBT
             </TabsTrigger>
             <TabsTrigger
               value="mf"
-              className="text-xs sm:text-sm py-2.5 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 data-[state=active]:shadow-sm rounded-lg"
+              className="flex-1 min-w-[100px] text-xs sm:text-sm py-2.5 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 data-[state=active]:shadow-sm rounded-lg"
             >
               <Cpu className="w-4 h-4 mr-1.5 hidden sm:inline" />
               MF (ALS)
+            </TabsTrigger>
+            <TabsTrigger
+              value="vector-ops"
+              className="flex-1 min-w-[120px] text-xs sm:text-sm py-2.5 data-[state=active]:bg-rose-500/20 data-[state=active]:text-rose-400 data-[state=active]:shadow-sm rounded-lg"
+            >
+              <Database className="w-4 h-4 mr-1.5 hidden sm:inline" />
+              Vector DB
+            </TabsTrigger>
+            <TabsTrigger
+              value="anonymous"
+              className="flex-1 min-w-[160px] text-xs sm:text-sm py-2.5 data-[state=active]:bg-indigo-500/20 data-[state=active]:text-indigo-400 data-[state=active]:shadow-sm rounded-lg"
+            >
+              <Fingerprint className="w-4 h-4 mr-1.5 hidden sm:inline" />
+              Anonymous Identity
             </TabsTrigger>
           </TabsList>
 
@@ -1288,6 +2024,12 @@ export default function HowItWorksPage() {
             </TabsContent>
             <TabsContent value="mf">
               <MatrixFactorizationTab />
+            </TabsContent>
+            <TabsContent value="vector-ops">
+              <VectorOpsTab />
+            </TabsContent>
+            <TabsContent value="anonymous">
+              <AnonymousIdentityTab />
             </TabsContent>
           </div>
         </Tabs>
@@ -1351,7 +2093,7 @@ export default function HowItWorksPage() {
                 bg: "bg-violet-500/5 border-violet-500/20",
                 dot: "bg-violet-500/50",
               },
-            ].map((item, i) => (
+            ].map((item) => (
               <div key={item.era} className="relative pl-16 pb-8 last:pb-0">
                 {/* Dot */}
                 <div className={`absolute left-4 top-2 w-5 h-5 rounded-full border-2 border-background ${item.dot} ${item.current ? "ring-2 ring-cyan-400/50 ring-offset-2 ring-offset-background" : ""}`} />
@@ -1393,5 +2135,13 @@ export default function HowItWorksPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function HowItWorksPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-pulse font-medium text-muted-foreground">Loading...</div></div>}>
+      <HowItWorksContent />
+    </Suspense>
   );
 }
